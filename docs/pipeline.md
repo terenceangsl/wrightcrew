@@ -63,6 +63,14 @@ All state lives in **one file**, `.cadre/run/queue.json`, and it is changed only
 - A STOP file, `USER_BACK` or the deadline also **ends the running lane** (its process tree, by PID), unless
   `stop_kills_running_lane` is false. Sleeps check for them every 10 s.
 
+### Recovering after a lane is ended mid-edit
+STOP, `USER_BACK`, the deadline or a timeout can kill a builder lane mid-edit. Before the next run:
+1. `git status`: if the guarded paths are dirty, inspect the changes, then restore from the card's backup or run `git checkout -- <paths>`.
+2. If `.git/index.lock` exists and no git process is running, delete it.
+3. `driver.py status`: the item is `failed`, with the reason in its note. Re-queue it (`set-state <ID> queued`) once the tree is clean.
+
+**Known limit:** two `driver.py run` commands started at the same instant over a stale `driver.pid` can race. Start the driver once.
+
 ## 7. Park rule
 A card family (same id stem) with **2 CARD-CONFLICT stops** in a row is `parked` for the user, not re-issued. (L-11)
 

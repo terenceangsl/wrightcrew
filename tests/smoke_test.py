@@ -19,13 +19,15 @@ mode = open("mode.txt").read().strip() if os.path.exists("mode.txt") else "land"
 def commit(msg, path="src/a.txt"):
     open(path, "a", encoding="utf-8").write(cid + "\n")
     subprocess.run(["git", "add", path]); subprocess.run(["git", "commit", "-qm", msg])
-if cid.endswith("-REV"):
+if cid.startswith("REFILL-"):
+    pass   # a refill lane that writes nothing
+elif cid.endswith("-REV"):
     t = open(re.search(r"follow (.+?) exactly;", t).group(1), encoding="utf-8").read()   # the review prompt file
     rp = re.search(r"(\.cadre[\\/]run[\\/]reviews[\\/][^\s`]+-REV\.md)", t).group(1)
     os.makedirs(os.path.dirname(rp), exist_ok=True)
     if mode == "review_writes_code": commit(f"[{cid}] oops")
-    open(rp, "w").write("CLEAN\n")
-elif mode in ("land", "review_writes_code"): commit(f"[{cid}] landed")
+    open(rp, "w").write("UNCLEAN: 2 defects\n" if mode == "review_unclean" else "CLEAN\n")
+elif mode in ("land", "review_writes_code", "review_unclean"): commit(f"[{cid}] landed")
 elif mode == "unicode":        commit(f"[{cid}] landed ❌→ ok")
 elif mode == "land_record":    commit(f"[{cid}] code"); commit(f"[{cid}] RECORD", "notes.txt")
 elif mode == "conflict_text":  commit(f"[{cid}] landed; earlier CARD-CONFLICT resolved")
@@ -43,7 +45,7 @@ def rmtree(d):
 def sh(cmd, cwd, **kw):
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", **kw)
 
-def make_repo(runner="python"):
+def make_repo(runner="python", refill=False):
     d = None
     d = tempfile.mkdtemp(prefix="cadre_smoke_")
     os.makedirs(os.path.join(d, "src")); os.makedirs(os.path.join(d, "templates")); os.makedirs(os.path.join(d, "prompts"))
@@ -57,6 +59,7 @@ def make_repo(runner="python"):
     cfg = {"repo_root": ".", "guarded_paths": ["src"], "runner": [runner, "fake_runner.py", "{launch}", "{log}"],
            "roles": {"builder": {"tools": "b"}, "review": {"tools": "r"}, "docs": {"tools": "d"}},
            "review_after_builder": True, "review_template": "templates/review_prompt.md", "pause_between_lanes_s": 0}
+    if refill: cfg["refill_prompt"] = "prompts/p.md"
     json.dump(cfg, open(os.path.join(d, "cadre.config.json"), "w"))
     return d
 
@@ -134,7 +137,8 @@ def t_review_range():   # I-1
         q = run_until_idle(d)
         assert len(state(q, "R")["commits"]) == 2, f"commits {state(q, 'R')['commits']}"
         body = open(os.path.join(d, ".cadre", "run", "prompts", "R-REV.md"), encoding="utf-8").read()
-        assert "^.." in body, "review prompt does not carry the card's commit range"
+        shas = state(q, "R")["commits"]
+        assert f"..{shas[-1]}" in body and all(c in body for c in shas), "review prompt does not carry the card's commit range"
     return with_repo("land_record", s)
 
 def t_conflict_text():   # I-2
@@ -169,11 +173,36 @@ def t_stop_kills_lane():   # I-5
         assert "stop file" in state(q, "H")["note"], state(q, "H")["note"]
     return with_repo("hang", s)
 
+def t_refill_empty_queue():   # v0.2 CRITICAL: refill crashed the driver
+    d = make_repo(refill=True)
+    try:
+        p = subprocess.Popen([sys.executable, DRIVER, "run"], cwd=d, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        logf = os.path.join(d, ".cadre", "run", "driver.log"); end = time.time() + 40; text = ""
+        while time.time() < end:
+            text = open(logf, encoding="utf-8").read() if os.path.exists(logf) else ""
+            if "nothing runnable" in text: break
+            time.sleep(0.5)
+        alive = p.poll() is None
+        open(os.path.join(d, ".cadre", "run", "STOP"), "w").write("x"); p.wait(30)
+        assert "REFILL rc=0" in text, "no 'REFILL rc=0' in the log"
+        assert "nothing runnable" in text and alive, "driver died after the refill lane"
+    finally: rmtree(d)
+
+def t_review_unclean():   # v0.2 IMPORTANT: substring verdict
+    def s(d):
+        drv(d, "add", "N", "builder", "prompts/p.md", "--state", "queued", "--checker", "opus")
+        q = run_until_idle(d)
+        assert state(q, "N")["state"] == "landed", f"N is {state(q, 'N')['state']} (UNCLEAN must not mark reviewed)"
+        assert "review findings" in state(q, "N")["note"], state(q, "N")["note"]
+    return with_repo("review_unclean", s)
+
 for n, f in [("checker guard / duplicate / bad id", t_guard), ("land -> review -> reviewed; draft held", t_land_and_review),
              ("C-1 unicode subject", t_unicode), ("C-2 missing runner -> failed", t_missing_runner),
              ("I-1 review covers the card range", t_review_range), ("I-2 CARD-CONFLICT text mid-subject", t_conflict_text),
              ("CARD-CONFLICT prefix -> stopped", t_conflict), ("I-7 review lane writing code -> failed", t_review_readonly),
-             ("I-5 stop file ends a running lane", t_stop_kills_lane)]:
+             ("I-5 stop file ends a running lane", t_stop_kills_lane),
+             ("v0.2 refill on an empty queue keeps the driver alive", t_refill_empty_queue),
+             ("v0.2 UNCLEAN review keeps the card landed", t_review_unclean)]:
     case(n, f)
 for r, n in results: print(f"{r:<4} {n}")
 print(f"{sum(r == 'ok' for r, _ in results)} ok / {sum(r == 'FAIL' for r, _ in results)} FAIL")

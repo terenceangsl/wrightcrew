@@ -194,8 +194,10 @@ def nap(cfg, seconds):
 
 
 # ---------- lanes ----------
-def run_lane(cfg, it):
-    """Returns (rc, note). Never raises: any error becomes rc=-1 with a note (C-2)."""
+def run_lane(cfg, it, track=True):
+    """Returns (rc, note). Never raises: any error becomes rc=-1 with a note (C-2).
+    track=False for synthetic lanes (refill) that are not queue items."""
+    proc = None
     try:
         role_cfg = cfg["roles"][it["role"]]
         name = f"{it['id']}_a{max(1, it['attempts'])}"
@@ -217,7 +219,7 @@ def run_lane(cfg, it):
         kw = {"cwd": cfg["repo_root"]}
         if os.name != "nt": kw["start_new_session"] = True
         proc = subprocess.Popen(cmd, **kw)
-        update_item(cfg, it["id"], lane_pid=proc.pid)
+        if track: update_item(cfg, it["id"], lane_pid=proc.pid)
         log(cfg, f"LAUNCH {it['role']} {it['id']} pid {proc.pid} -> {lane_log}")
         backstop = time.time() + tmo + 600   # if the runner ignores {timeout}
         while proc.poll() is None:
@@ -229,7 +231,9 @@ def run_lane(cfg, it):
             time.sleep(5)
         log(cfg, f"EXIT {it['id']} rc={proc.returncode}")
         return proc.returncode, ""
-    except Exception as e:   # noqa: BLE001 - any error must release the item
+    except BaseException as e:   # noqa: BLE001 - any error must release the item and its lane
+        if proc is not None and proc.poll() is None: kill_tree(proc.pid)
+        if isinstance(e, KeyboardInterrupt): raise
         return -1, f"driver error: {type(e).__name__}: {e}"
 
 def decide(cfg, it, rc, note, start):
@@ -246,10 +250,11 @@ def decide(cfg, it, rc, note, start):
     if t or guarded_dirty(cfg): return "failed", shas, "READ-ONLY VIOLATION: guarded paths changed by a non-builder lane"
     if it["role"] == "review":
         rp = os.path.join(cfg["repo_root"], it.get("report", ""))
-        if not it.get("report") or not os.path.exists(rp): return "failed", shas, "review wrote no report"
+        if not it.get("report") or not os.path.exists(rp) or os.path.getmtime(rp) < it.get("_lane_t0", 0):
+            return "failed", shas, "review wrote no (new) report"
     return ("landed" if rc == 0 else "failed"), shas, note
 
-def queue_review(cfg, it, shas):
+def queue_review(cfg, it, shas, start):
     rid = f"{it['id']}-REV"
     if rid in [x["id"] for x in read_q(cfg)["items"]]: log(cfg, f"review {rid} exists; not re-queued"); return
     tpl_path = os.path.join(cfg["repo_root"], cfg["review_template"])
@@ -257,7 +262,7 @@ def queue_review(cfg, it, shas):
     rel = os.path.relpath(cfg["runtime_dir"], cfg["repo_root"])
     prompt_rel = os.path.join(rel, "prompts", f"{rid}.md")
     report_rel = os.path.join(rel, "reviews", f"{rid}.md")
-    rng = f"{shas[0]}^..{shas[-1]}"   # the card's whole range, code + records (I-1)
+    rng = f"{start}..{shas[-1]}" if start else shas[-1]   # the lane's whole range, code + records (I-1); root-safe
     body = (tpl.replace("{commit}", rng).replace("{commits}", " ".join(shas)).replace("{id}", it["id"])
                .replace("{report_path}", report_rel).replace("{fix_draft_path}", os.path.join(rel, "reviews", f"{rid}_fixcard.md")))
     os.makedirs(os.path.dirname(os.path.join(cfg["repo_root"], prompt_rel)), exist_ok=True)
@@ -270,8 +275,10 @@ def queue_review(cfg, it, shas):
 def close_review(cfg, it):
     """A CLEAN review marks its parent `reviewed`; findings leave the parent `landed` with a note."""
     rp = os.path.join(cfg["repo_root"], it.get("report", ""))
-    first = open(rp, encoding="utf-8", errors="replace").read(400).upper() if os.path.exists(rp) else ""
-    if "CLEAN" in first and "FINDINGS" not in first: update_item(cfg, it["parent"], state="reviewed")
+    first = ""
+    if os.path.exists(rp):
+        with open(rp, encoding="utf-8", errors="replace") as f: first = f.readline().strip().upper()
+    if first == "CLEAN": update_item(cfg, it["parent"], state="reviewed")   # exact match: "UNCLEAN" / "NOT CLEAN" are findings
     else: update_item(cfg, it["parent"], note=f"review findings: {it.get('report')}")
 
 
@@ -301,6 +308,7 @@ def reconcile(cfg):
 
 def cmd_run(cfg):
     leftover = stop_reason(cfg)
+    if leftover == "deadline reached": raise SystemExit("ABORT: the configured deadline has already passed; update `deadline`")
     if leftover: raise SystemExit(f"ABORT: {leftover} present before start; remove it first")
     pidf = acquire_driver_lock(cfg)
     max_fails = cfg.get("max_builder_fail_streak", 2)
@@ -313,13 +321,13 @@ def cmd_run(cfg):
             if why: log(cfg, why); break
             if not model_up(cfg): log(cfg, "model endpoint down; waiting 5 min"); nap(cfg, 300); continue
             blocked = []
+            dirty = guarded_dirty(cfg)
             def pick_fn(q):
                 cands = sorted((x for x in q["items"] if x["state"] == "queued"), key=lambda x: x["order"])
                 for x in cands:
                     if x["role"] == "builder":
                         if q["builder_fail_streak"] >= max_fails: blocked.append(f"{x['id']} (fail streak)"); continue
-                        d = guarded_dirty(cfg)
-                        if d: blocked.append(f"{x['id']} (guarded paths dirty)"); continue
+                        if dirty: blocked.append(f"{x['id']} (guarded paths dirty)"); continue
                     x["state"] = "running"; x["attempts"] += 1; x["updated"] = stamp(); x["lane_pid"] = None
                     return dict(x)
                 return None
@@ -331,17 +339,23 @@ def cmd_run(cfg):
                     run_refill(cfg); refilled_this_idle = True; continue
                 log(cfg, f"nothing runnable (drafts {drafts}); waiting 30 min"); nap(cfg, 1800); continue
             refilled_this_idle = False
-            start = head(cfg)
+            start = head(cfg); it["_lane_t0"] = time.time() - 2
             rc, note = run_lane(cfg, it)
-            state, shas, note = decide(cfg, it, rc, note, start)
+            try:
+                state, shas, note = decide(cfg, it, rc, note, start)
+            except Exception as e:   # noqa: BLE001 - the item must never stay `running`
+                state, shas, note = "failed", [], f"decide error: {type(e).__name__}: {e}"
             update_item(cfg, it["id"], state=state, commits=shas, note=(note or f"rc={rc}"), lane_pid=None)
             log(cfg, f"OUTCOME {it['id']} {state} {' '.join(s[:8] for s in shas)} {note}")
-            if it["role"] == "builder":
-                def streak(q): q["builder_fail_streak"] = 0 if state in ("landed", "stopped") else q["builder_fail_streak"] + 1
-                mutate(cfg, streak)
-                if state == "landed" and cfg.get("review_after_builder") and shas: queue_review(cfg, it, shas)
-            elif it["role"] == "review" and state == "landed" and it.get("parent"):
-                close_review(cfg, it)
+            try:
+                if it["role"] == "builder":
+                    def streak(q): q["builder_fail_streak"] = 0 if state in ("landed", "stopped") else q["builder_fail_streak"] + 1
+                    mutate(cfg, streak)
+                    if state == "landed" and cfg.get("review_after_builder") and shas: queue_review(cfg, it, shas, start)
+                elif it["role"] == "review" and state == "landed" and it.get("parent"):
+                    close_review(cfg, it)
+            except Exception as e:   # noqa: BLE001 - keep the unattended run going
+                log(cfg, f"POST-LANE ERROR {it['id']}: {type(e).__name__}: {e}")
             nap(cfg, cfg.get("pause_between_lanes_s", 60))
     finally:
         try: os.remove(pidf)
@@ -352,7 +366,7 @@ def run_refill(cfg):
     rid = "REFILL-" + now().strftime("%m%d%H%M%S")
     it = {"id": rid, "role": cfg.get("refill_role", "docs"), "prompt": cfg["refill_prompt"], "attempts": 1}
     start = head(cfg)
-    rc, note = run_lane(cfg, it)
+    rc, note = run_lane(cfg, it, track=False)
     if touched_guarded(cfg, start) or guarded_dirty(cfg):
         log(cfg, "REFILL READ-ONLY VIOLATION: guarded paths changed; builder lanes pause")
         mutate(cfg, lambda q: q.__setitem__("builder_fail_streak", 99))
@@ -377,7 +391,8 @@ def cmd_status(cfg):
     for it in q["items"]: counts[it["state"]] = counts.get(it["state"], 0) + 1
     print("counts: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))
     for it in sorted(q["items"], key=lambda x: x["order"]):
-        if it["state"] in ("landed", "reviewed") and "--all" not in sys.argv: continue
+        hidden = it["state"] == "reviewed" or (it["state"] == "landed" and "review findings" not in (it.get("note") or ""))
+        if hidden and "--all" not in sys.argv: continue
         c = ",".join(s[:8] for s in it.get("commits") or [])
         print(f"  {it['order']:>6} {it['state']:<8} {it['role']:<8} {it['id']:<22} maker={it['maker'] or '-'} "
               f"checker={it['checker'] or '-'} {('commits=' + c) if c else ''} {it.get('note', '')}")

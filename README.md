@@ -60,9 +60,9 @@ Requires Python 3.9+ and git. Run every command from **your project's root**.
 
 ## Status
 
-v0.2, 2026-10-19. The driver generalises the one that ran the Auto Crawler away-week.
-- **Checked.** A fresh Opus checker reviewed v0.1 and found 2 critical and 10 important defects. The driver changes are fixed; the docs changes are fixed in v0.2.
-- **Tested.** `tests/smoke_test.py` covers the checker's reproductions plus the core paths: 9 cases.
+v0.3, 2026-10-19. The driver generalises the one that ran the Auto Crawler away-week.
+- **Checked.** A fresh Opus checker reviewed v0.1 (2 critical, 10 important) and v0.2 (1 new critical, 1 important); all are fixed in v0.3.
+- **Tested.** `tests/smoke_test.py` covers the checker's reproductions (v0.1 and v0.2 rounds) plus the core paths: 11 cases.
 - **Not yet run for real.** It has not driven a real model lane in this generic form, so point it at a throwaway repo first.
 - **Limits:**
   - The `--checker` guard is free text, so any lane with a shell could self-queue. Lanes are isolated by OS means instead (`docs/permissions.md`).
