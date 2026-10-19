@@ -7,7 +7,7 @@
   "guarded_paths": ["src", "dist"],
   "health_url": "http://127.0.0.1:8080/v1/models",
   "model": "local-model-name",
-  "runner": ["python", "tools/run_lane.py", "local", "{model}", "{tools}", "{name}", "{launch}", "{log}", "{timeout}"],
+  "runner": ["python", "tools/run_lane.example.py", "--timeout", "{timeout}", "--log", "{log}", "--launch", "{launch}", "--", "pi", "-p", "--provider", "local", "--model", "{model}", "--tools", "{tools}"],
   "lane_timeout_s": 14400,
   "pause_between_lanes_s": 60,
   "max_builder_fail_streak": 2,
@@ -19,5 +19,8 @@
   "review_after_builder": true,
   "review_template": "templates/review_prompt.md",
   "refill_prompt": "templates/refill_prompt.md",
-  "refill_autoqueue": false
+  "refill_autoqueue": false,
+  "refill_role": "docs",
+  "max_open_drafts": 6,
+  "stop_kills_running_lane": true
 }

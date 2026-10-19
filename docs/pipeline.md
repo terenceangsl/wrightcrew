@@ -29,26 +29,43 @@ All state lives in **one file**, `.cadre/run/queue.json`, and it is changed only
 - The driver takes the first `queued` item in `order`, writes a launch file (the task line first, plus a shell-safety
   block), and runs the runner with the role's tool set and a timeout.
 - **Preconditions** for builder items: the guarded paths are clean, and the builder-failure streak is below the limit.
-- **Outcome** is decided from `git log` since the lane started, matched on the card id in commit subjects:
-  - a commit with the id and no `CARD-CONFLICT` in it → `landed` (with the commit hash recorded);
-  - a commit with the id and `CARD-CONFLICT` → `stopped`;
-  - no commit, or a non-zero exit → `failed`.
+- **Outcome** is decided from the commits made during the lane (`<HEAD at start>..HEAD`) whose subject **starts with** `[ID]`:
+
+  | lane result | state |
+  |---|---|
+  | a `[ID] CARD-CONFLICT...` commit | `stopped` |
+  | exit 0, at least one `[ID]` commit, guarded paths clean | `landed` (all its commit hashes recorded) |
+  | no `[ID]` commit, non-zero exit, dirty guarded paths, a driver error, or ended by STOP / deadline / backstop | `failed`, with the reason in `note` |
+  | review/docs lane that changed guarded paths | `failed`: READ-ONLY VIOLATION, and builders pause |
+  | review lane with no report file | `failed` |
+
+- An item never stays `running` after an error. A driver that crashed mid-lane is reconciled at the next start: a dead lane → `failed`;
+  a live lane PID → the driver refuses to start until you deal with that PID. `driver.py recover` does the same by hand.
 
 ## 4. Review (per landing, automatic)
 - If `review_after_builder` is on, every `landed` item gets a **review item** queued at the front: a read-only
-  checker lane, or a Claude reviewer, that looks at exactly that commit (`templates/review_prompt.md`).
-- A review finding becomes a fix card at the front of the queue. Fixing within the hour beats an end-of-week audit
-  of 20 stacked landings. (L-19)
+  checker lane, or a Claude reviewer, that looks at that card's commits (`templates/review_prompt.md`).
+- The review covers the card's **whole commit range** (code plus record commits). A report whose first line is `CLEAN` marks
+  the card `reviewed`; `FINDINGS (n)` leaves it `landed` with a note pointing at the report.
+- Turning a finding into a fix card is done **by hand** (mentor or planner, then a checker). Fixing within the hour beats an
+  end-of-week audit of 20 stacked landings. (L-19)
 
 ## 5. Refill (when the queue is empty)
-- The driver runs the planner refill lane (`templates/refill_prompt.md`). It writes new cards as **`draft`**,
+- The driver runs the planner refill lane (`templates/refill_prompt.md`) **once per idle period**, and only while fewer than
+  `max_open_drafts` (default 6) drafts are open. It writes new cards as **`draft`**,
   priority-ordered by the project's plan, and obeys the park rule and the never-overwrite rule.
 - Drafts still need a checker before they are `queued`. If no checker is available unattended, the project decides
   in `cadre.config.json` (`refill_autoqueue`) whether unchecked refills may run. The default is false. (L-12)
 
-## 6. Park rule
+## 6. Pauses and stops
+- After `max_builder_fail_streak` failed builder lanes in a row, builder items are skipped (the log names them as BLOCKED) until
+  `driver.py reset-streak`. Docs and review lanes keep running.
+- A STOP file, `USER_BACK` or the deadline also **ends the running lane** (its process tree, by PID), unless
+  `stop_kills_running_lane` is false. Sleeps check for them every 10 s.
+
+## 7. Park rule
 A card family (same id stem) with **2 CARD-CONFLICT stops** in a row is `parked` for the user, not re-issued. (L-11)
 
-## Priorities
+## 8. Priorities
 Keep the refill's priority list tied to the project's **actual goal** (for example, the v1 scope list). When it was
 missing, the refill drifted to low-value items: 11 lanes, 1 landing. (L-20)

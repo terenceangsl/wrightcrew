@@ -2,7 +2,7 @@
 
 **A small crew of AI agents with fixed roles, building a project together, with a checker on every maker.**
 
-Cadre is the operating kit distilled from running the *Auto Crawler* game project with a mixed crew: Claude (Opus / Sonnet / Haiku) for planning, checking and reading, and a **local LLM** for unattended building. It came out of one hard week in October 2026, in which an away-week of autonomous work went from 1 hour of work per 7 hours to roughly 30 lanes a day. Every rule in it comes from something that actually broke.
+Cadre is the operating kit distilled from running the *Auto Crawler* game project with a mixed crew: Claude (Opus / Sonnet / Haiku) for planning, checking and reading, and a **local LLM** for unattended building. It came out of one hard week in October 2026, in which an away-week of autonomous work went from about 1 hour of model work per 7.5 hours to 44-69 lanes a day. Every rule in it comes from something that actually broke.
 
 It is not a framework or a server. It is:
 
@@ -30,18 +30,26 @@ The one rule above all: **if you are the maker, you need a checker.** Nothing a 
 
 ## Quick start
 
-1. Copy `AGENTS.md` into your project root and fill in the project-specific sections, marked `<<like this>>`.
-2. Copy `cadre.config.example.json` to `cadre.config.json` and point it at your repo, your runner and your guarded paths.
-3. Write cards with `templates/card.md` and builder prompts with `templates/builder_prompt.md`. Get each one checked (`templates/check_report.md`).
-4. Queue checked prompts:
+Requires Python 3.9+ and git. Run every command from **your project's root**.
+
+1. Copy `cadre/`, `templates/` and `AGENTS.md` into your project. Fill in the `<<like this>>` parts of `AGENTS.md`, and
+   start `docs/STATE.md` and `docs/goals.md` from `templates/STATE.md` and `templates/goals.md`.
+2. Copy `cadre.config.example.json` to `cadre.config.json`. Set `guarded_paths` (your product code), the `runner` command
+   (start from `tools/run_lane.example.py`) and `health_url`.
+3. Write cards with `templates/card.md` and builder prompts with `templates/builder_prompt.md`. Get each one checked by a
+   fresh session (`templates/check_report.md`).
+4. Queue a checked prompt (a builder item can't be queued without a named checker):
    ```
-   python cadre/driver.py add FIX-S02 builder prompts/fix_s02.md --maker opus --checker opus
+   python cadre/driver.py add FIX-S02 builder prompts/fix_s02.md --state queued --maker sonnet --checker opus
    ```
-5. Start the driver yourself, in your own terminal; it is never started by an agent:
+   Unchecked work goes in as `--state draft`, and is promoted later with `set-state FIX-S02 queued --checker opus`.
+5. Remove any leftover `.cadre/run/STOP` or `USER_BACK`, then start the driver yourself, in your own terminal (never an agent):
    ```
    python cadre/driver.py run
    ```
-6. Watch it with `python cadre/driver.py status`. Stop it with `python cadre/driver.py stop`, or by creating the stop file.
+6. Watch it with `driver.py status`. End it with `driver.py stop`, which also ends the running lane. After a crash:
+   `driver.py recover`. After a builder failure streak: `driver.py reset-streak`.
+7. Before trusting a change to the driver, run `python tests/smoke_test.py` (no model needed).
 
 ## Read next
 
@@ -52,14 +60,13 @@ The one rule above all: **if you are the maker, you need a checker.** Nothing a 
 
 ## Status
 
-v0.1, extracted 2026-10-19. The driver generalises the one that ran the Auto Crawler away-week. It was smoke-tested against a throwaway git repo with a fake runner, covering:
-- the queue checker guard and duplicate refusal;
-- a builder lane detected as landed from its `[ID]` commit;
-- the review queued at the front and run;
-- drafts not running;
-- a clean stop on the stop file.
-
-It has **not** yet driven a real model lane in this generic form, so point it at a throwaway repo first.
+v0.2, 2026-10-19. The driver generalises the one that ran the Auto Crawler away-week.
+- **Checked.** A fresh Opus checker reviewed v0.1 and found 2 critical and 10 important defects. The driver changes are fixed; the docs changes are fixed in v0.2.
+- **Tested.** `tests/smoke_test.py` covers the checker's reproductions plus the core paths: 9 cases.
+- **Not yet run for real.** It has not driven a real model lane in this generic form, so point it at a throwaway repo first.
+- **Limits:**
+  - The `--checker` guard is free text, so any lane with a shell could self-queue. Lanes are isolated by OS means instead (`docs/permissions.md`).
+  - Review findings become fix cards by hand (mentor or planner); this is not automated.
 
 **Planned next:**
 - Resume the lane's agent session when retrying a stopped card, instead of a cold start (L-22).
