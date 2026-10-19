@@ -68,3 +68,4 @@ See `docs/roles.md`. The short form:
 - Stop files: `<<.wrightcrew/run/STOP>>` (any agent may create it on a real defect) and `<<.wrightcrew/run/USER_BACK>>`.
 - When the user is present and interacting, no lanes run. Their remote check-ins do not count as present;
   only the `USER_BACK` file does. (L-06)
+- Paid-model pacing: see `docs/budget.md`. Draft while the usage window is full; launch heavy agents after the reset. (L-31)

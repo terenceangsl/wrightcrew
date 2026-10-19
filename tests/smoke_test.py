@@ -99,7 +99,7 @@ def t_guard():
     def s(d):
         r = drv(d, "add", "A", "builder", "prompts/p.md", "--state", "queued")
         assert "without --checker" in r.stderr + r.stdout, "unchecked builder was queued"
-        assert drv(d, "add", "A", "builder", "prompts/p.md", "--state", "queued", "--checker", "opus").returncode == 0
+        assert drv(d, "add", "A", "builder", "prompts/p.md", "--state", "queued", "--maker", "sonnet", "--checker", "opus").returncode == 0
         r = drv(d, "add", "A", "builder", "prompts/p.md")
         assert "already exists" in r.stderr + r.stdout, "duplicate id accepted"
         r = drv(d, "add", "bad id", "builder", "prompts/p.md")
@@ -108,7 +108,7 @@ def t_guard():
 
 def t_land_and_review():
     def s(d):
-        drv(d, "add", "A", "builder", "prompts/p.md", "--state", "queued", "--checker", "opus")
+        drv(d, "add", "A", "builder", "prompts/p.md", "--state", "queued", "--maker", "sonnet", "--checker", "opus")
         drv(d, "add", "B", "builder", "prompts/p.md", "--state", "draft")
         q = run_until_idle(d)
         assert state(q, "A")["state"] == "reviewed", f"A is {state(q, 'A')['state']}"
@@ -118,7 +118,7 @@ def t_land_and_review():
 
 def t_unicode():   # C-1
     def s(d):
-        drv(d, "add", "U", "builder", "prompts/p.md", "--state", "queued", "--checker", "opus")
+        drv(d, "add", "U", "builder", "prompts/p.md", "--state", "queued", "--maker", "sonnet", "--checker", "opus")
         q = run_until_idle(d)
         assert state(q, "U")["state"] in ("landed", "reviewed"), f"U is {state(q, 'U')['state']}"
     return with_repo("unicode", s)
@@ -126,14 +126,14 @@ def t_unicode():   # C-1
 def t_missing_runner():   # C-2
     d = make_repo(runner="no_such_runner_exe_xyz")
     try:
-        drv(d, "add", "M", "builder", "prompts/p.md", "--state", "queued", "--checker", "opus")
+        drv(d, "add", "M", "builder", "prompts/p.md", "--state", "queued", "--maker", "sonnet", "--checker", "opus")
         q = run_until_idle(d)
         assert state(q, "M")["state"] == "failed", f"M is {state(q, 'M')['state']} (should be failed, not stuck running)"
     finally: rmtree(d)
 
 def t_review_range():   # I-1
     def s(d):
-        drv(d, "add", "R", "builder", "prompts/p.md", "--state", "queued", "--checker", "opus")
+        drv(d, "add", "R", "builder", "prompts/p.md", "--state", "queued", "--maker", "sonnet", "--checker", "opus")
         q = run_until_idle(d)
         assert len(state(q, "R")["commits"]) == 2, f"commits {state(q, 'R')['commits']}"
         body = open(os.path.join(d, ".wrightcrew", "run", "prompts", "R-REV.md"), encoding="utf-8").read()
@@ -143,28 +143,28 @@ def t_review_range():   # I-1
 
 def t_conflict_text():   # I-2
     def s(d):
-        drv(d, "add", "C", "builder", "prompts/p.md", "--state", "queued", "--checker", "opus")
+        drv(d, "add", "C", "builder", "prompts/p.md", "--state", "queued", "--maker", "sonnet", "--checker", "opus")
         q = run_until_idle(d)
         assert state(q, "C")["state"] in ("landed", "reviewed"), f"C is {state(q, 'C')['state']}"
     return with_repo("conflict_text", s)
 
 def t_conflict():
     def s(d):
-        drv(d, "add", "K", "builder", "prompts/p.md", "--state", "queued", "--checker", "opus")
+        drv(d, "add", "K", "builder", "prompts/p.md", "--state", "queued", "--maker", "sonnet", "--checker", "opus")
         q = run_until_idle(d)
         assert state(q, "K")["state"] == "stopped", f"K is {state(q, 'K')['state']}"
     return with_repo("conflict", s)
 
 def t_review_readonly():   # I-7
     def s(d):
-        drv(d, "add", "W", "builder", "prompts/p.md", "--state", "queued", "--checker", "opus")
+        drv(d, "add", "W", "builder", "prompts/p.md", "--state", "queued", "--maker", "sonnet", "--checker", "opus")
         q = run_until_idle(d)
         assert state(q, "W-REV")["state"] == "failed", f"W-REV is {state(q, 'W-REV')['state']}"
     return with_repo("review_writes_code", s)
 
 def t_stop_kills_lane():   # I-5
     def s(d):
-        drv(d, "add", "H", "builder", "prompts/p.md", "--state", "queued", "--checker", "opus")
+        drv(d, "add", "H", "builder", "prompts/p.md", "--state", "queued", "--maker", "sonnet", "--checker", "opus")
         p = subprocess.Popen([sys.executable, DRIVER, "run"], cwd=d, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         time.sleep(8); open(os.path.join(d, ".wrightcrew", "run", "STOP"), "w").write("x")
         p.wait(60)
@@ -190,11 +190,94 @@ def t_refill_empty_queue():   # v0.2 CRITICAL: refill crashed the driver
 
 def t_review_unclean():   # v0.2 IMPORTANT: substring verdict
     def s(d):
-        drv(d, "add", "N", "builder", "prompts/p.md", "--state", "queued", "--checker", "opus")
+        drv(d, "add", "N", "builder", "prompts/p.md", "--state", "queued", "--maker", "sonnet", "--checker", "opus")
         q = run_until_idle(d)
         assert state(q, "N")["state"] == "landed", f"N is {state(q, 'N')['state']} (UNCLEAN must not mark reviewed)"
         assert "review findings" in state(q, "N")["note"], state(q, "N")["note"]
     return with_repo("review_unclean", s)
+
+def t_self_check_refused():   # W-02
+    def s(d):
+        r = drv(d, "add", "SELF", "builder", "prompts/p.md", "--state", "queued", "--maker", "opus", "--checker", "opus")
+        assert r.returncode == 1, f"maker==checker accepted (rc {r.returncode})"
+        r = drv(d, "add", "SELF2", "builder", "prompts/p.md", "--state", "queued", "--maker", "Opus", "--checker", " opus ")
+        assert r.returncode == 1, "case/space variant accepted"
+        drv(d, "add", "D", "builder", "prompts/p.md", "--maker", "opus")
+        r = drv(d, "set-state", "D", "queued", "--checker", "OPUS")
+        assert r.returncode == 1, f"set-state queued with checker==maker accepted (rc {r.returncode})"
+        assert drv(d, "set-state", "D", "queued", "--checker", "sonnet").returncode == 0, "a different checker was refused"
+    return with_repo("land", s)
+
+def t_lock_empty_pid():   # W-04: an empty driver.pid is LOCKED, never deleted
+    def s(d):
+        rd = os.path.join(d, ".wrightcrew", "run"); os.makedirs(rd)
+        pf = os.path.join(rd, "driver.pid"); open(pf, "w").close()
+        p = subprocess.Popen([sys.executable, DRIVER, "run"], cwd=d, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        try: out, _ = p.communicate(timeout=15)
+        except subprocess.TimeoutExpired:
+            p.kill(); p.communicate(); raise AssertionError("run did not abort on an empty driver.pid")
+        assert p.returncode != 0 and "ABORT" in out and "recover" in out, f"rc {p.returncode}: {out!r}"
+        assert os.path.exists(pf), "the empty driver.pid was deleted"
+    return with_repo("land", s)
+
+def t_lock_not_deleted_by_other():   # W-04: finally deletes driver.pid only if it holds our pid
+    def s(d):
+        rd = os.path.join(d, ".wrightcrew", "run"); pf = os.path.join(rd, "driver.pid"); logf = os.path.join(rd, "driver.log")
+        p = subprocess.Popen([sys.executable, DRIVER, "run"], cwd=d, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        end = time.time() + 30
+        while time.time() < end and not (os.path.exists(logf) and "START" in open(logf, encoding="utf-8").read()): time.sleep(0.3)
+        assert os.path.exists(pf), "driver did not start"
+        open(pf, "w").write(str(os.getpid()))          # another LIVE pid (this test process) now owns the lock
+        open(os.path.join(rd, "STOP"), "w").write("x")
+        try: p.wait(40)
+        except subprocess.TimeoutExpired: p.kill(); p.wait(); raise AssertionError("driver did not stop")
+        assert os.path.exists(pf) and open(pf).read().strip() == str(os.getpid()), "driver deleted a lock it does not own"
+    return with_repo("land", s)
+
+def t_warn_missing_guarded():   # W-11
+    d = make_repo()
+    try:
+        cfgp = os.path.join(d, "wrightcrew.config.json"); c = json.load(open(cfgp))
+        c["guarded_paths"] = ["src", "no_such_dir"]; json.dump(c, open(cfgp, "w"))
+        run_until_idle(d, seconds=15)
+        text = open(os.path.join(d, ".wrightcrew", "run", "driver.log"), encoding="utf-8").read()
+        assert "WARNING: guarded path 'no_such_dir' does not exist" in text, "no warning in the log"
+        assert "guarded path 'src'" not in text, "warned about an existing path"
+    finally: rmtree(d)
+
+def t_status_ascii():   # W-14
+    def s(d):
+        r = drv(d, "status")
+        assert r.returncode == 0 and "·" not in r.stdout and all(ord(ch) < 128 for ch in r.stdout), f"non-ASCII in status: {r.stdout!r}"
+    return with_repo("land", s)
+
+def t_queue_needs_maker():   # V-04
+    def s(d):
+        r = drv(d, "add", "NM", "builder", "prompts/p.md", "--state", "queued", "--checker", "opus")
+        assert r.returncode == 1 and "maker" in r.stderr + r.stdout, f"queued add without --maker accepted (rc {r.returncode})"
+        drv(d, "add", "NM2", "builder", "prompts/p.md")
+        r = drv(d, "set-state", "NM2", "queued", "--checker", "opus")
+        assert r.returncode == 1, f"set-state queued on an item with no maker accepted (rc {r.returncode})"
+        assert drv(d, "add", "NM3", "docs", "prompts/p.md", "--state", "queued").returncode == 0, "docs item wrongly needs a maker"
+    return with_repo("land", s)
+
+def t_status_stale_lock():   # V-07
+    def s(d):
+        rd = os.path.join(d, ".wrightcrew", "run"); os.makedirs(rd)
+        open(os.path.join(rd, "driver.pid"), "w").close()
+        r = drv(d, "status")
+        assert "stale lock" in r.stdout and "recover" in r.stdout, f"no stale-lock hint: {r.stdout!r}"
+        open(os.path.join(rd, "driver.pid"), "w").write("not-a-pid")
+        assert "stale lock" in drv(d, "status").stdout, "garbage pid not flagged"
+    return with_repo("land", s)
+
+def t_lock_released_on_early_error():   # V-08
+    def s(d):
+        rd = os.path.join(d, ".wrightcrew", "run"); os.makedirs(os.path.join(rd, "driver.log"))   # log() will raise
+        r = drv(d, "run", timeout=30)
+        assert r.returncode != 0, "run should fail when driver.log cannot be written"
+        assert not os.path.exists(os.path.join(rd, "driver.pid")), "lock left behind after an early exception"
+    return with_repo("land", s)
 
 for n, f in [("checker guard / duplicate / bad id", t_guard), ("land -> review -> reviewed; draft held", t_land_and_review),
              ("C-1 unicode subject", t_unicode), ("C-2 missing runner -> failed", t_missing_runner),
@@ -202,7 +285,15 @@ for n, f in [("checker guard / duplicate / bad id", t_guard), ("land -> review -
              ("CARD-CONFLICT prefix -> stopped", t_conflict), ("I-7 review lane writing code -> failed", t_review_readonly),
              ("I-5 stop file ends a running lane", t_stop_kills_lane),
              ("v0.2 refill on an empty queue keeps the driver alive", t_refill_empty_queue),
-             ("v0.2 UNCLEAN review keeps the card landed", t_review_unclean)]:
+             ("v0.2 UNCLEAN review keeps the card landed", t_review_unclean),
+             ("W-02 checker == maker refused (add, set-state)", t_self_check_refused),
+             ("W-04 empty driver.pid is LOCKED; run aborts", t_lock_empty_pid),
+             ("W-04 driver does not delete a lock it does not own", t_lock_not_deleted_by_other),
+             ("W-11 missing guarded path warns", t_warn_missing_guarded),
+             ("W-14 status output is ASCII", t_status_ascii),
+             ("V-04 queued builder item needs a maker", t_queue_needs_maker),
+             ("V-07 status flags a stale driver.pid", t_status_stale_lock),
+             ("V-08 lock released after an early exception", t_lock_released_on_early_error)]:
     case(n, f)
 for r, n in results: print(f"{r:<4} {n}")
 print(f"{sum(r == 'ok' for r, _ in results)} ok / {sum(r == 'FAIL' for r, _ in results)} FAIL")

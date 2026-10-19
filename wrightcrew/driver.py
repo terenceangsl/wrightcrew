@@ -283,17 +283,38 @@ def close_review(cfg, it):
 
 
 # ---------- the loop ----------
+def read_pid_file(pidf):
+    """Text of driver.pid, or None if it does not exist."""
+    try:
+        with open(pidf) as f: return f.read().strip()
+    except FileNotFoundError: return None
+
 def acquire_driver_lock(cfg):
+    """One driver per repo (W-04). The pid is written to a temp file first and linked into place, so driver.pid
+    never exists empty or partial. An existing driver.pid that is empty, unparsable or dead counts as LOCKED and is
+    never deleted here; `driver.py recover` is the only way to clear it."""
     pidf = P(cfg, "driver.pid")
-    for _ in range(2):
-        try:
-            fd = os.open(pidf, os.O_CREAT | os.O_EXCL | os.O_WRONLY); os.write(fd, str(os.getpid()).encode()); os.close(fd)
-            return pidf
-        except FileExistsError:
-            old = open(pidf).read().strip()
+    tmp = f"{pidf}.tmp.{os.getpid()}"
+    with open(tmp, "w") as f: f.write(str(os.getpid()))
+    try:
+        for attempt in range(2):
+            try: os.link(tmp, pidf); return pidf          # atomic: fails if driver.pid exists
+            except FileExistsError: pass
+            except OSError:                                # no hard links on this filesystem: O_EXCL, one write
+                try:
+                    fd = os.open(pidf, os.O_CREAT | os.O_EXCL | os.O_WRONLY); os.write(fd, str(os.getpid()).encode()); os.close(fd)
+                    return pidf
+                except FileExistsError: pass
+            old = read_pid_file(pidf)
+            if old is None: continue                       # vanished between the attempt and the read: retry
             if old.isdigit() and pid_alive(int(old)): raise SystemExit(f"ABORT: a driver is already running (pid {old})")
-            os.remove(pidf)
-    raise SystemExit("ABORT: cannot take driver.pid")
+            if attempt == 0: time.sleep(2); continue       # maybe a writer is mid-write: look again once
+            raise SystemExit(f"ABORT: driver.pid exists but holds no live driver (contents {old!r}). If no driver is "
+                             f"alive, run `python wrightcrew/driver.py recover` to clear it, then start again.")
+        raise SystemExit("ABORT: cannot take driver.pid")
+    finally:
+        try: os.remove(tmp)
+        except OSError: pass
 
 def reconcile(cfg):
     """At startup: a `running` item whose lane is alive means a driver crashed mid-lane -> refuse to start;
@@ -313,8 +334,11 @@ def cmd_run(cfg):
     pidf = acquire_driver_lock(cfg)
     max_fails = cfg.get("max_builder_fail_streak", 2)
     refilled_this_idle = False
-    log(cfg, f"START pid {os.getpid()} deadline {cfg.get('_deadline')}")
-    try:
+    try:   # entered right after the lock is taken, so any later exception still releases it (V-08)
+        log(cfg, f"START pid {os.getpid()} deadline {cfg.get('_deadline')}")
+        for gp in cfg.get("guarded_paths", []):   # W-11: a missing path makes the dirty-tree guard pass silently
+            if not os.path.exists(os.path.join(cfg["repo_root"], gp)):
+                log(cfg, f"WARNING: guarded path '{gp}' does not exist; the dirty-tree guard does not cover it")
         reconcile(cfg)
         while True:
             why = stop_reason(cfg)
@@ -358,8 +382,9 @@ def cmd_run(cfg):
                 log(cfg, f"POST-LANE ERROR {it['id']}: {type(e).__name__}: {e}")
             nap(cfg, cfg.get("pause_between_lanes_s", 60))
     finally:
-        try: os.remove(pidf)
-        except OSError: pass
+        if read_pid_file(pidf) == str(os.getpid()):   # delete only our own lock (W-04)
+            try: os.remove(pidf)
+            except OSError: pass
         log(cfg, "STOP")
 
 def run_refill(cfg):
@@ -385,8 +410,9 @@ def cmd_status(cfg):
     pidf = P(cfg, "driver.pid")
     pid = open(pidf).read().strip() if os.path.exists(pidf) else ""
     alive = pid.isdigit() and pid_alive(int(pid))
-    print(f"driver: {'RUNNING pid ' + pid if alive else 'not running'} · builder fail streak {q['builder_fail_streak']}"
-          f" · stop: {stop_reason(cfg) or 'none'}")
+    stale = os.path.exists(pidf) and not alive
+    print(f"driver: {'RUNNING pid ' + pid if alive else ('stale lock (driver.pid ' + repr(pid) + ') - run `driver.py recover`' if stale else 'not running')} - builder fail streak {q['builder_fail_streak']}"
+          f" - stop: {stop_reason(cfg) or 'none'}")
     counts = {}
     for it in q["items"]: counts[it["state"]] = counts.get(it["state"], 0) + 1
     print("counts: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))
@@ -396,6 +422,18 @@ def cmd_status(cfg):
         c = ",".join(s[:8] for s in it.get("commits") or [])
         print(f"  {it['order']:>6} {it['state']:<8} {it['role']:<8} {it['id']:<22} maker={it['maker'] or '-'} "
               f"checker={it['checker'] or '-'} {('commits=' + c) if c else ''} {it.get('note', '')}")
+
+def check_queueable(maker, checker):
+    """A queued builder item needs a named maker and a different checker (L-12, V-04)."""
+    if not (maker or "").strip():
+        raise SystemExit("a queued builder item needs a named maker (--maker): the checker must differ from it (L-12)")
+    if same_person(maker, checker):
+        raise SystemExit("a builder item's checker must not be its maker (L-12)")
+
+def same_person(maker, checker):
+    """True when both are named and equal, ignoring case and surrounding spaces (W-02)."""
+    m, c = (maker or "").strip().lower(), (checker or "").strip().lower()
+    return bool(m) and m == c
 
 def cmd_set_state(cfg, a):
     if a.state not in STATES or a.state == "running": raise SystemExit(f"bad state; one of {[s for s in STATES if s != 'running']}")
@@ -408,6 +446,7 @@ def cmd_set_state(cfg, a):
             raise SystemExit(f"its lane pid {it['lane_pid']} is still alive; kill that PID first")
         if a.state == "queued" and it["role"] == "builder" and not (a.checker or it.get("checker")):
             raise SystemExit("a builder item cannot be queued without a checker (L-12): pass --checker")
+        if a.state == "queued" and it["role"] == "builder": check_queueable(it.get("maker"), a.checker or it.get("checker"))
         it["state"] = a.state; it["updated"] = stamp()
         if a.checker: it["checker"] = a.checker
         if a.note: it["note"] = a.note
@@ -435,11 +474,14 @@ def main():
     elif args.cmd == "recover":
         pid = open(P(cfg, "driver.pid")).read().strip() if os.path.exists(P(cfg, "driver.pid")) else ""
         if pid.isdigit() and pid_alive(int(pid)): raise SystemExit(f"a driver is running (pid {pid}); stop it first")
-        reconcile(cfg); print("recovered")
+        reconcile(cfg)
+        if os.path.exists(P(cfg, "driver.pid")): os.remove(P(cfg, "driver.pid"))   # stale lock: only recover clears it (W-04)
+        print("recovered")
     elif args.cmd == "add":
         if args.role not in cfg["roles"]: raise SystemExit(f"unknown role {args.role}; roles: {list(cfg['roles'])}")
         if args.state == "queued" and args.role == "builder" and not args.checker:
             raise SystemExit("a builder item cannot be queued without --checker (maker needs a checker, L-12)")
+        if args.state == "queued" and args.role == "builder": check_queueable(args.maker, args.checker)
         add_item(cfg, args.id, args.role, args.prompt, args.state, args.maker, args.checker, args.front, args.order)
         print(f"added {args.id} as {args.state}")
     elif args.cmd == "set-state": cmd_set_state(cfg, args)

@@ -69,11 +69,11 @@ STOP, `USER_BACK`, the deadline or a timeout can kill a builder lane mid-edit. B
 2. If `.git/index.lock` exists and no git process is running, delete it.
 3. `driver.py status`: the item is `failed`, with the reason in its note. Re-queue it (`set-state <ID> queued`) once the tree is clean.
 
-**Known limit:** two `driver.py run` commands started at the same instant over a stale `driver.pid` can race. Start the driver once.
+**One driver per repo** is enforced by the `driver.pid` lock: the pid is written atomically, and only its owner deletes it. An empty, unparsable or dead `driver.pid` counts as LOCKED and `run` aborts. If no driver is alive, `driver.py recover` is the only way to clear it. (L-26)
 
 ## 7. Park rule
 A card family (same id stem) with **2 CARD-CONFLICT stops** in a row is `parked` for the user, not re-issued. (L-11)
 
 ## 8. Priorities
 Keep the refill's priority list tied to the project's **actual goal** (for example, the v1 scope list). When it was
-missing, the refill drifted to low-value items: 11 lanes, 1 landing. (L-20)
+missing, the refill drifted to low-value items. (L-20)
