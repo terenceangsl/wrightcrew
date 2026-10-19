@@ -21,7 +21,7 @@ These run a coding agent with a **shell, as your user account, for days**. The p
 2. **A fixed health script** instead of ad-hoc commands (start from `scripts/checks.example.sh`), with one exact allow rule for it. Every new command string is a new prompt. (L-05a)
 3. **File-write rules use `Edit(...)`,** scoped to the run's working folders:
    ```json
-   "Edit(.cadre/run/**)", "Edit(reports/**)", "Edit(prompts/**)"
+   "Edit(.wrightcrew/run/**)", "Edit(reports/**)", "Edit(prompts/**)"
    ```
 4. **Lane launches come from the driver,** which the user starts. Agents need no "start process" rule; don't grant one.
 5. **A default mode for the window,** set in the project `.claude/settings.local.json`. A mode toggled inside one session does **not** carry over to the next scheduled run (L-05d). Prefer the first option:

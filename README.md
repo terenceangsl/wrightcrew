@@ -1,14 +1,14 @@
-# Cadre
+# Wrightcrew
 
 **A small crew of AI agents with fixed roles, building a project together, with a checker on every maker.**
 
-Cadre is the operating kit distilled from running the *Auto Crawler* game project with a mixed crew: Claude (Opus / Sonnet / Haiku) for planning, checking and reading, and a **local LLM** for unattended building. It came out of one hard week in October 2026, in which an away-week of autonomous work went from about 1 hour of model work per 7.5 hours to 44-69 lanes a day. Every rule in it comes from something that actually broke.
+Wrightcrew is the operating kit distilled from running the *Auto Crawler* game project with a mixed crew: Claude (Opus / Sonnet / Haiku) for planning, checking and reading, and a **local LLM** for unattended building. It came out of one hard week in October 2026, in which an away-week of autonomous work went from about 1 hour of model work per 7.5 hours to 44-69 lanes a day. Every rule in it comes from something that actually broke.
 
 It is not a framework or a server. It is:
 
 - **A role charter.** Who plans, who builds, who checks, who reads, and what each role never does.
 - **A pipeline.** Maker → checker → (maker fixes) → queue → build → review → landed or stopped.
-- **A driver** (`cadre/driver.py`). It runs queued lanes one at a time with no Claude in the loop: one state file, stop files, a deadline, and a post-landing review.
+- **A driver** (`wrightcrew/driver.py`). It runs queued lanes one at a time with no Claude in the loop: one state file, stop files, a deadline, and a post-landing review.
 - **Templates** for cards, builder prompts, check reports, handoff entries and the planner refill.
 - **A lessons file**, which records each incident and the rule it produced.
 
@@ -32,20 +32,20 @@ The one rule above all: **if you are the maker, you need a checker.** Nothing a 
 
 Requires Python 3.9+ and git. Run every command from **your project's root**.
 
-1. Copy `cadre/`, `templates/` and `AGENTS.md` into your project. Fill in the `<<like this>>` parts of `AGENTS.md`, and
+1. Copy `wrightcrew/`, `templates/` and `AGENTS.md` into your project. Fill in the `<<like this>>` parts of `AGENTS.md`, and
    start `docs/STATE.md` and `docs/goals.md` from `templates/STATE.md` and `templates/goals.md`.
-2. Copy `cadre.config.example.json` to `cadre.config.json`. Set `guarded_paths` (your product code), the `runner` command
+2. Copy `wrightcrew.config.example.json` to `wrightcrew.config.json`. Set `guarded_paths` (your product code), the `runner` command
    (start from `tools/run_lane.example.py`) and `health_url`.
 3. Write cards with `templates/card.md` and builder prompts with `templates/builder_prompt.md`. Get each one checked by a
    fresh session (`templates/check_report.md`).
 4. Queue a checked prompt (a builder item can't be queued without a named checker):
    ```
-   python cadre/driver.py add FIX-S02 builder prompts/fix_s02.md --state queued --maker sonnet --checker opus
+   python wrightcrew/driver.py add FIX-S02 builder prompts/fix_s02.md --state queued --maker sonnet --checker opus
    ```
    Unchecked work goes in as `--state draft`, and is promoted later with `set-state FIX-S02 queued --checker opus`.
-5. Remove any leftover `.cadre/run/STOP` or `USER_BACK`, then start the driver yourself, in your own terminal (never an agent):
+5. Remove any leftover `.wrightcrew/run/STOP` or `USER_BACK`, then start the driver yourself, in your own terminal (never an agent):
    ```
-   python cadre/driver.py run
+   python wrightcrew/driver.py run
    ```
 6. Watch it with `driver.py status`. End it with `driver.py stop`, which also ends the running lane. After a crash:
    `driver.py recover`. After a builder failure streak: `driver.py reset-streak`.

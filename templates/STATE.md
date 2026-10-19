@@ -7,4 +7,4 @@
 - **Open asks for the user:** <one line each, with the default if no answer>
 - **Locked decisions index:** `docs/adr/README.md`
 - **Goals:** `docs/goals.md` (the refill reads it)
-- **Paths:** product code `<...>` · probes `<...>` · runtime `.cadre/run/`
+- **Paths:** product code `<...>` · probes `<...>` · runtime `.wrightcrew/run/`

@@ -1,4 +1,4 @@
-.cadre/
-cadre.config.json
+.wrightcrew/
+wrightcrew.config.json
 __pycache__/
 *.pyc

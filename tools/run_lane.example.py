@@ -1,6 +1,6 @@
 """Example lane runner: runs ONE agent command with a hard timeout, logs its output, kills the whole process tree.
 
-The driver calls it through cadre.config.json "runner", for example:
+The driver calls it through wrightcrew.config.json "runner", for example:
   python tools/run_lane.example.py --timeout 14400 --log <log> --launch <launch.txt> -- pi -p --provider local --model M --tools T
 
 The launch text (the task, plus shell safety) is passed to the agent on stdin. Adapt the command after `--` to your agent

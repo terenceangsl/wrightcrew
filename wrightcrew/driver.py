@@ -1,15 +1,15 @@
-"""Cadre driver: runs queued agent lanes one at a time, with no orchestrator in the loop.
+"""Wrightcrew driver: runs queued agent lanes one at a time, with no orchestrator in the loop.
 
 Generalised from the Auto Crawler week driver (2026-10). See docs/pipeline.md and docs/lessons.md.
 Requires Python 3.9+ and git on PATH. Run every command from the repo root.
 
-  python cadre/driver.py run                    # the USER starts this, in their own terminal (L-07)
-  python cadre/driver.py status [--all]
-  python cadre/driver.py add ID ROLE PROMPT [--state draft|queued|hold] [--maker M] [--checker C] [--front] [--order N]
-  python cadre/driver.py set-state ID STATE [--checker C] [--note TEXT] [--force]
-  python cadre/driver.py reset-streak           # re-enable builder lanes after the failure-streak pause
-  python cadre/driver.py recover                # mark orphaned `running` items failed (only when no driver runs)
-  python cadre/driver.py stop                   # writes the stop file; a running lane is ended too
+  python wrightcrew/driver.py run                    # the USER starts this, in their own terminal (L-07)
+  python wrightcrew/driver.py status [--all]
+  python wrightcrew/driver.py add ID ROLE PROMPT [--state draft|queued|hold] [--maker M] [--checker C] [--front] [--order N]
+  python wrightcrew/driver.py set-state ID STATE [--checker C] [--note TEXT] [--force]
+  python wrightcrew/driver.py reset-streak           # re-enable builder lanes after the failure-streak pause
+  python wrightcrew/driver.py recover                # mark orphaned `running` items failed (only when no driver runs)
+  python wrightcrew/driver.py stop                   # writes the stop file; a running lane is ended too
 
 All state lives in <runtime_dir>/queue.json, changed ONLY through this CLI; never rename files (L-16).
 """
@@ -27,11 +27,11 @@ READ_ONLY_NOTE = "READ-ONLY ROLE: do not edit or commit anything under the guard
 
 # ---------- config and paths ----------
 def load_config(path):
-    if not os.path.exists(path): raise SystemExit(f"no config at {path}; copy cadre.config.example.json")
+    if not os.path.exists(path): raise SystemExit(f"no config at {path}; copy wrightcrew.config.example.json")
     with open(path, encoding="utf-8") as f: cfg = json.load(f)
     root = os.path.abspath(cfg.get("repo_root", "."))
     cfg["repo_root"] = root
-    cfg["runtime_dir"] = os.path.join(root, cfg.get("runtime_dir", ".cadre/run"))
+    cfg["runtime_dir"] = os.path.join(root, cfg.get("runtime_dir", ".wrightcrew/run"))
     os.makedirs(cfg["runtime_dir"], exist_ok=True)
     for r in ("builder",):
         if r not in cfg.get("roles", {}): raise SystemExit(f"config.roles must define '{r}'")
@@ -414,8 +414,8 @@ def cmd_set_state(cfg, a):
     mutate(cfg, f); print(f"{a.id} -> {a.state}")
 
 def main():
-    ap = argparse.ArgumentParser(description="Cadre driver")
-    ap.add_argument("--config", default="cadre.config.json")
+    ap = argparse.ArgumentParser(description="Wrightcrew driver")
+    ap.add_argument("--config", default="wrightcrew.config.json")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("run"); s = sub.add_parser("status"); s.add_argument("--all", action="store_true")
     sub.add_parser("stop"); sub.add_parser("reset-streak"); sub.add_parser("recover")

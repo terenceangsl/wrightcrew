@@ -51,5 +51,5 @@ The final say. Taste calls (art, story, feel, balance), one-line vetoes, and sta
 | reading logs, history, external pages | Haiku |
 | writing cards, prompts, story wiring | Sonnet (bulk) or Opus (tricky) |
 | checking prompts and landings | **fresh** Opus |
-| building | local LLM (unattended), driven by `cadre/driver.py` |
+| building | local LLM (unattended), driven by `wrightcrew/driver.py` |
 | decisions, routing, user conversation | Opus (mentor) |

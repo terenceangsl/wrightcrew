@@ -1,7 +1,7 @@
 {
-  "_comment": "Copy to cadre.config.json. Paths are relative to repo_root. The runner list is the command the driver runs per lane; {tools} {name} {launch} {log} {timeout} {model} are filled in.",
+  "_comment": "Copy to wrightcrew.config.json. Paths are relative to repo_root. The runner list is the command the driver runs per lane; {tools} {name} {launch} {log} {timeout} {model} are filled in.",
   "repo_root": ".",
-  "runtime_dir": ".cadre/run",
+  "runtime_dir": ".wrightcrew/run",
   "deadline": "2026-10-26T06:00:00",
   "stop_files": ["STOP", "USER_BACK"],
   "guarded_paths": ["src", "dist"],

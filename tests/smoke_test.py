@@ -1,4 +1,4 @@
-"""Smoke tests for cadre/driver.py: throwaway git repos plus a fake runner. No model, no network.
+"""Smoke tests for wrightcrew/driver.py: throwaway git repos plus a fake runner. No model, no network.
 
   python tests/smoke_test.py          # prints one ok/FAIL line per case, exits 1 on any FAIL
 
@@ -7,7 +7,7 @@ Each case replays a defect a checker reproduced (C-1, C-2, I-1, I-2, I-5, I-7) o
 import json, os, shutil, stat, subprocess, sys, tempfile, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DRIVER = os.path.join(HERE, "..", "cadre", "driver.py")
+DRIVER = os.path.join(HERE, "..", "wrightcrew", "driver.py")
 REVIEW_TPL = os.path.join(HERE, "..", "templates", "review_prompt.md")
 
 FAKE = r'''
@@ -23,7 +23,7 @@ if cid.startswith("REFILL-"):
     pass   # a refill lane that writes nothing
 elif cid.endswith("-REV"):
     t = open(re.search(r"follow (.+?) exactly;", t).group(1), encoding="utf-8").read()   # the review prompt file
-    rp = re.search(r"(\.cadre[\\/]run[\\/]reviews[\\/][^\s`]+-REV\.md)", t).group(1)
+    rp = re.search(r"(\.wrightcrew[\\/]run[\\/]reviews[\\/][^\s`]+-REV\.md)", t).group(1)
     os.makedirs(os.path.dirname(rp), exist_ok=True)
     if mode == "review_writes_code": commit(f"[{cid}] oops")
     open(rp, "w").write("UNCLEAN: 2 defects\n" if mode == "review_unclean" else "CLEAN\n")
@@ -47,7 +47,7 @@ def sh(cmd, cwd, **kw):
 
 def make_repo(runner="python", refill=False):
     d = None
-    d = tempfile.mkdtemp(prefix="cadre_smoke_")
+    d = tempfile.mkdtemp(prefix="wrightcrew_smoke_")
     os.makedirs(os.path.join(d, "src")); os.makedirs(os.path.join(d, "templates")); os.makedirs(os.path.join(d, "prompts"))
     for c in (["git", "init", "-q"], ["git", "config", "user.email", "t@t"], ["git", "config", "user.name", "t"],
               ["git", "config", "core.autocrlf", "false"]): sh(c, d)
@@ -60,7 +60,7 @@ def make_repo(runner="python", refill=False):
            "roles": {"builder": {"tools": "b"}, "review": {"tools": "r"}, "docs": {"tools": "d"}},
            "review_after_builder": True, "review_template": "templates/review_prompt.md", "pause_between_lanes_s": 0}
     if refill: cfg["refill_prompt"] = "prompts/p.md"
-    json.dump(cfg, open(os.path.join(d, "cadre.config.json"), "w"))
+    json.dump(cfg, open(os.path.join(d, "wrightcrew.config.json"), "w"))
     return d
 
 def drv(d, *args, timeout=120):
@@ -69,14 +69,14 @@ def drv(d, *args, timeout=120):
 def run_until_idle(d, seconds=40):
     """Start the driver, wait until it logs 'nothing runnable', then stop it."""
     p = subprocess.Popen([sys.executable, DRIVER, "run"], cwd=d, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    logf = os.path.join(d, ".cadre", "run", "driver.log"); end = time.time() + seconds
+    logf = os.path.join(d, ".wrightcrew", "run", "driver.log"); end = time.time() + seconds
     while time.time() < end and p.poll() is None:
         if os.path.exists(logf) and "nothing runnable" in open(logf, encoding="utf-8").read(): break
         time.sleep(0.5)
-    open(os.path.join(d, ".cadre", "run", "STOP"), "w").write("x")
+    open(os.path.join(d, ".wrightcrew", "run", "STOP"), "w").write("x")
     try: p.wait(30)
     except subprocess.TimeoutExpired: p.kill()
-    return json.load(open(os.path.join(d, ".cadre", "run", "queue.json"), encoding="utf-8"))
+    return json.load(open(os.path.join(d, ".wrightcrew", "run", "queue.json"), encoding="utf-8"))
 
 def state(q, i): return next(x for x in q["items"] if x["id"] == i)
 
@@ -136,7 +136,7 @@ def t_review_range():   # I-1
         drv(d, "add", "R", "builder", "prompts/p.md", "--state", "queued", "--checker", "opus")
         q = run_until_idle(d)
         assert len(state(q, "R")["commits"]) == 2, f"commits {state(q, 'R')['commits']}"
-        body = open(os.path.join(d, ".cadre", "run", "prompts", "R-REV.md"), encoding="utf-8").read()
+        body = open(os.path.join(d, ".wrightcrew", "run", "prompts", "R-REV.md"), encoding="utf-8").read()
         shas = state(q, "R")["commits"]
         assert f"..{shas[-1]}" in body and all(c in body for c in shas), "review prompt does not carry the card's commit range"
     return with_repo("land_record", s)
@@ -166,9 +166,9 @@ def t_stop_kills_lane():   # I-5
     def s(d):
         drv(d, "add", "H", "builder", "prompts/p.md", "--state", "queued", "--checker", "opus")
         p = subprocess.Popen([sys.executable, DRIVER, "run"], cwd=d, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(8); open(os.path.join(d, ".cadre", "run", "STOP"), "w").write("x")
+        time.sleep(8); open(os.path.join(d, ".wrightcrew", "run", "STOP"), "w").write("x")
         p.wait(60)
-        q = json.load(open(os.path.join(d, ".cadre", "run", "queue.json"), encoding="utf-8"))
+        q = json.load(open(os.path.join(d, ".wrightcrew", "run", "queue.json"), encoding="utf-8"))
         assert state(q, "H")["state"] == "failed", f"H is {state(q, 'H')['state']}"
         assert "stop file" in state(q, "H")["note"], state(q, "H")["note"]
     return with_repo("hang", s)
@@ -177,13 +177,13 @@ def t_refill_empty_queue():   # v0.2 CRITICAL: refill crashed the driver
     d = make_repo(refill=True)
     try:
         p = subprocess.Popen([sys.executable, DRIVER, "run"], cwd=d, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        logf = os.path.join(d, ".cadre", "run", "driver.log"); end = time.time() + 40; text = ""
+        logf = os.path.join(d, ".wrightcrew", "run", "driver.log"); end = time.time() + 40; text = ""
         while time.time() < end:
             text = open(logf, encoding="utf-8").read() if os.path.exists(logf) else ""
             if "nothing runnable" in text: break
             time.sleep(0.5)
         alive = p.poll() is None
-        open(os.path.join(d, ".cadre", "run", "STOP"), "w").write("x"); p.wait(30)
+        open(os.path.join(d, ".wrightcrew", "run", "STOP"), "w").write("x"); p.wait(30)
         assert "REFILL rc=0" in text, "no 'REFILL rc=0' in the log"
         assert "nothing runnable" in text and alive, "driver died after the refill lane"
     finally: rmtree(d)

@@ -8,7 +8,7 @@
  hold  (paused by the mentor)        parked (set aside for the user)
 ```
 
-All state lives in **one file**, `.cadre/run/queue.json`, and it is changed only through `cadre/driver.py`
+All state lives in **one file**, `.wrightcrew/run/queue.json`, and it is changed only through `wrightcrew/driver.py`
 (`add`, `set-state`, `status`). Nobody renames files to signal state. (L-16: renaming a running item would have crashed the driver.)
 
 ## 1. Make (planner)
@@ -55,7 +55,7 @@ All state lives in **one file**, `.cadre/run/queue.json`, and it is changed only
   `max_open_drafts` (default 6) drafts are open. It writes new cards as **`draft`**,
   priority-ordered by the project's plan, and obeys the park rule and the never-overwrite rule.
 - Drafts still need a checker before they are `queued`. If no checker is available unattended, the project decides
-  in `cadre.config.json` (`refill_autoqueue`) whether unchecked refills may run. The default is false. (L-12)
+  in `wrightcrew.config.json` (`refill_autoqueue`) whether unchecked refills may run. The default is false. (L-12)
 
 ## 6. Pauses and stops
 - After `max_builder_fail_streak` failed builder lanes in a row, builder items are skipped (the log names them as BLOCKED) until

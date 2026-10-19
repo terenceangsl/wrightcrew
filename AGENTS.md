@@ -24,7 +24,7 @@ See `docs/roles.md`. The short form:
 - One agent edits one file at a time. Corrections are new versions or new entries, never overwrites of
   another agent's file. **Before writing, `ls` the path; if it exists and is not yours, choose a new name.** (L-17)
 - Never rename, move or delete a queue item the driver may be running. Change state with
-  `cadre/driver.py set-state` only. (L-16)
+  `wrightcrew/driver.py set-state` only. (L-16)
 
 ## 4. Build discipline (builder)
 1. **Backup → edit → verify → log**, in that order. The backup is taken *before* the first touch and is proven to
@@ -65,6 +65,6 @@ See `docs/roles.md`. The short form:
 ## 8. Unattended runs
 - The user starts the driver; agents never start their own unattended loops. (L-15)
 - Permissions: see `docs/permissions.md`. Use scoped rules or auto mode for the run. **Revert on return.**
-- Stop files: `<<.cadre/run/STOP>>` (any agent may create it on a real defect) and `<<.cadre/run/USER_BACK>>`.
+- Stop files: `<<.wrightcrew/run/STOP>>` (any agent may create it on a real defect) and `<<.wrightcrew/run/USER_BACK>>`.
 - When the user is present and interacting, no lanes run. Their remote check-ins do not count as present;
   only the `USER_BACK` file does. (L-06)

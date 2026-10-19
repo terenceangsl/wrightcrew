@@ -1,8 +1,8 @@
 TASK (planner role, docs only, refill): the queue is empty. Write the next builder cards and prompts as DRAFTS, then STOP.
 
 1. Read:
-   - `python cadre/driver.py status`;
-   - the last 40 lines of `.cadre/run/driver.log`;
+   - `python wrightcrew/driver.py status`;
+   - the last 40 lines of `.wrightcrew/run/driver.log`;
    - `git log --oneline -30`;
    - the goal list `<<docs/goals.md>>`.
    Never read the handoff log whole.
@@ -14,5 +14,5 @@ TASK (planner role, docs only, refill): the queue is empty. Write the next build
    - self-verify by re-opening every file:line you cite.
 5. **Never overwrite:** `ls` every path before writing; on a collision, use a new name.
 6. Register each one as a draft:
-   `python cadre/driver.py add <ID> builder <prompt path> --state draft --maker refill`  (exactly `refill`: `refill_autoqueue` matches on it)
-7. Write a 5-line summary to `.cadre/run/refill_<MMDD_HHMM>.md`. No product code, no commits.
+   `python wrightcrew/driver.py add <ID> builder <prompt path> --state draft --maker refill`  (exactly `refill`: `refill_autoqueue` matches on it)
+7. Write a 5-line summary to `.wrightcrew/run/refill_<MMDD_HHMM>.md`. No product code, no commits.
