@@ -7,7 +7,7 @@
   "guarded_paths": ["src", "dist"],
   "health_url": "http://127.0.0.1:8080/v1/models",
   "model": "local-model-name",
-  "runner": ["python", "tools/run_lane.example.py", "--timeout", "{timeout}", "--log", "{log}", "--launch", "{launch}", "--", "pi", "-p", "--provider", "local", "--model", "{model}", "--tools", "{tools}"],
+  "runner": ["python", "tools/run_lane.example.py", "--timeout", "{timeout}", "--log", "{log}", "--launch", "{launch}", "--", "pi", "-p", "--mode", "json", "--provider", "local", "--model", "{model}", "--tools", "{tools}"],
   "lane_timeout_s": 14400,
   "pause_between_lanes_s": 60,
   "max_builder_fail_streak": 2,

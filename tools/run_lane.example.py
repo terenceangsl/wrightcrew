@@ -1,10 +1,12 @@
 """Example lane runner: runs ONE agent command with a hard timeout, logs its output, kills the whole process tree.
 
 The driver calls it through wrightcrew.config.json "runner", for example:
-  python tools/run_lane.example.py --timeout 14400 --log <log> --launch <launch.txt> -- pi -p --provider local --model M --tools T
+  python tools/run_lane.example.py --timeout 14400 --log <log> --launch <launch.txt> -- pi -p --mode json --provider local --model M --tools T
 
 The launch text (the task, plus shell safety) is passed to the agent on stdin. Adapt the command after `--` to your agent
 CLI: some take the prompt as an argument instead, which you can do with a wrapper or `@file` syntax.
+Use `--mode json` for `pi` and never leave stdin open: `pi -p` with an open stdin hangs silently, and text mode loses the
+partial work of a cut-off run (L-40). Here stdin is the launch file, so it reaches EOF. Summarise the log with `tools/lane_summary.py`.
 Exit code = the agent's exit code, or 124 on timeout (L-21: the whole tree is killed, not just the top process).
 """
 import argparse, os, signal, subprocess, sys, time

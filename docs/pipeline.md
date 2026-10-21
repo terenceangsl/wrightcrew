@@ -71,6 +71,18 @@ STOP, `USER_BACK`, the deadline or a timeout can kill a builder lane mid-edit. B
 
 **One driver per repo** is enforced by the `driver.pid` lock: the pid is written atomically, and only its owner deletes it. An empty, unparsable or dead `driver.pid` counts as LOCKED and `run` aborts. If no driver is alive, `driver.py recover` is the only way to clear it. (L-26)
 
+## 6b. Lane hygiene (L-40, L-42)
+- **Log format.** Run `pi` with `--mode json` and a closed stdin. The log then shows progress while the lane runs, keeps partial work
+  after a timeout, and says why a run ended (`stopReason`, `agent_settled`). Measured on one model: a run cut at 25 s kept 354,378 B in
+  JSON mode and 0 B in text mode (`pi_mode_test_20261020.md`, findings file item 6).
+- **Never read a lane log whole.** `python tools/lane_summary.py <lane.log>` prints event counts, whether the run settled, the last
+  stopReason, tool calls by name, errors and the tail of the final text. Exit code 0 = settled, 2 = not settled.
+- **Cap each lane.** Set `lane_timeout_s` well below the 14400 s default for a local lane (the author's cap is 90 min = 5400 s). One uncapped lane looped
+  424 turns over 2.5 h.
+- **Fix cycles.** At most 3 per card, and no "it is a new failure" exception: the same cap applies however the failures differ.
+- **Lanes do not edit the orchestrator's files.** The lessons file, state file and queue belong to the orchestrator (L-42);
+  a lane proposes a lesson in its handoff entry. Guard those paths the way you guard product code.
+
 ## 7. Park rule
 A card family (same id stem) with **2 CARD-CONFLICT stops** in a row is `parked` for the user, not re-issued. (L-11)
 

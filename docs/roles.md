@@ -35,6 +35,10 @@ The final say. Taste calls (art, story, feel, balance), one-line vetoes, and sta
 - Output: a findings register (CRITICAL / IMPORTANT / MINOR; CONFIRMED vs PLAUSIBLE), each with a failure scenario and a one-line fix.
 - Never the builder of what it audits.
 
+## Art director (a strong model, for any craft with a taste bar)
+- Makes **one** quality-bar example and a written recipe; the local lanes then repeat it at volume (L-36). Read-only on product code.
+- Owns the per-role lessons file for that craft (see `docs/guidance.md`). Reviews each batch against the bar, because gates alone miss defects (L-37, L-38).
+
 ## Reader (Haiku)
 - Cheap bulk reading: logs, git history, queue state, external repos and docs. Numbers-only summaries.
 - Says "command failed" rather than guess. Never decides.
@@ -44,6 +48,11 @@ The final say. Taste calls (art, story, feel, balance), one-line vetoes, and sta
 
 ## UX reviewer
 - A scored, read-only UI review, decision-free UX fix cards, and short user playtest checklists. No code, art or story text.
+
+## Maker/checker evidence (L-39)
+In the Auto Crawler work an independent checker found at least one real defect in every landed code card (findings file item 5).
+Sonnet checkers were good enough for routine cards; keeping only the orchestrator on Opus saved the most usage. The split stays,
+whatever the model, and the same session never wears both hats.
 
 ## Model routing (what worked)
 | Work | Model |

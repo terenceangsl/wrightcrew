@@ -22,7 +22,7 @@ A *wright* is a maker: a shipwright, a playwright, a wheelwright. Wrightcrew is 
 
 Wrightcrew is the crew; **Strata** is the ground it builds on, the local model server that does the work. They meet at two points in `wrightcrew.config.json`:
 - `health_url`: Strata's model endpoint (e.g. `http://127.0.0.1:8080/v1/models`). The driver waits while it is down and never starts a lane against a dead server.
-- `runner`: the agent harness command that talks to Strata (e.g. `pi -p --provider local --model <strata model>`), wrapped by `tools/run_lane.example.py` for the timeout and the process-tree kill.
+- `runner`: the agent harness command that talks to Strata (e.g. `pi -p --mode json --provider local --model <strata model>`), wrapped by `tools/run_lane.example.py` for the timeout and the process-tree kill.
 
 Strata serves one request at a time, so Wrightcrew runs **one lane at a time** and keeps Claude out of the lane loop. One driver per repo is enforced by a lock (`driver.pid`, written atomically and deleted only by its owner); `driver.py recover` is the only way to clear a stale lock. Interactive Claude sessions and Strata lanes don't compete: no lanes run once you create `.wrightcrew/run/USER_BACK`.
 
@@ -35,6 +35,8 @@ It is not a framework or a server. It is:
 - **A driver** (`wrightcrew/driver.py`). It runs queued lanes one at a time with no Claude in the loop: one state file, stop files, a deadline, and a post-landing review.
 - **Templates** for cards, builder prompts, check reports, handoff entries and the planner refill.
 - **A lessons file**, which records each incident and the rule it produced.
+- **Two small tools** (v0.4 draft): `tools/lane_summary.py`, a JSONL lane-log summariser, and `templates/lessons_file.md`, a per-role lessons-file template.
+- **A guidance guide** (`docs/guidance.md`): how lessons, a recipe, gates and a scorecard trained a local model without fine-tuning.
 
 ## The crew
 
@@ -84,6 +86,8 @@ Requires Python 3.9+ and git. Run every command from **your project's root**.
 - `docs/permissions.md`: setting up an unattended run without stalls and without a blanket bypass, then reverting it.
 - `docs/lessons.md`: every incident and the rule it produced. **Read this before your first unattended run.**
 - `docs/budget.md`: pacing paid models, so the short usage window does not overflow into paid spend.
+- `docs/guidance.md`: training a local model with guidance (lessons, recipe, gates, self-look, scorecard).
+- `CHANGELOG.md`: what changed in each version.
 
 ## Status
 
