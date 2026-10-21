@@ -99,9 +99,10 @@ def kill_tree(pid):
 
 # ---------- queue.json with a lock (driver and CLI both write) ----------
 class QueueLock:
-    def __init__(self, cfg): self.path = P(cfg, "queue.lock")
+    SPINS = 300   # x 0.1 s = the 30 s wait
+    def __init__(self, cfg): self.cfg = cfg; self.path = P(cfg, "queue.lock")
     def __enter__(self):
-        for _ in range(300):
+        for _ in range(self.SPINS):
             try:
                 fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY); os.write(fd, str(os.getpid()).encode()); os.close(fd)
                 return self
@@ -109,10 +110,30 @@ class QueueLock:
                 try:
                     holder = open(self.path).read().strip()
                     stale = time.time() - os.path.getmtime(self.path) > 60
-                    if stale and not (holder.isdigit() and pid_alive(int(holder))): os.remove(self.path); continue
+                    if stale and not (holder.isdigit() and pid_alive(int(holder))): self._break_stale(holder); continue
                 except OSError: pass
                 time.sleep(0.1)
         raise SystemExit("ABORT: queue.lock busy for 30 s")
+    def _break_stale(self, holder):
+        """D-1 (L-26): delete only the stale file we judged. Claim it by an atomic rename (one waiter wins), then re-read:
+        if a live lock slipped in during pid_alive, put it back. Leaves one tiny window: between the rename and the put-back
+        another process may create queue.lock; that is detected (link fails) and aborts loudly instead of running unlocked."""
+        claimed = f"{self.path}.stale.{os.getpid()}"
+        try: os.rename(self.path, claimed)
+        except OSError: return   # another waiter claimed or removed it first; just retry
+        try: now = open(claimed).read().strip()
+        except OSError: now = None
+        if now == holder:
+            try: os.remove(claimed)
+            except OSError: pass
+            return
+        try: os.link(claimed, self.path)   # not the lock we judged: restore it, atomically, never overwriting
+        except FileExistsError:
+            log(self.cfg, f"LOCK ALARM: queue.lock was replaced twice while breaking a stale lock; live holder {now!r} kept in {claimed}")
+            raise SystemExit("ABORT: queue.lock race; see driver.log (LOCK ALARM)")
+        except OSError: pass
+        try: os.remove(claimed)
+        except OSError: pass
     def __exit__(self, *a):
         try: os.remove(self.path)
         except OSError: pass

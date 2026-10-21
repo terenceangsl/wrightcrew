@@ -12,6 +12,13 @@ Folds in the ten findings from the Auto Crawler work of 2026-10-19..21 (source: 
 - Not part of this entry: the v0.3.2 work (V-05, V-06, V-10); it is its own entry below.
 - **Needs a fresh checker** before release (L-12, L-23): every number must be traced to the findings file.
 
+## v0.3.3 (2026-10-21)
+Three defects found by challenging seven outside reviews against the code.
+- **D-1 (important):** the `queue.lock` stale breaker could delete a live lock another waiter had just created. It now claims the stale file by atomic rename, re-reads it, and restores a live lock with `os.link`; a double race logs `LOCK ALARM` and aborts. One tiny window remains (rename to put-back) and it fails loudly, never unlocked.
+- **D-2 (docs):** L-30 now says what the driver does: no `[ID]` commit means `failed`; a lane that leaves guarded files dirty blocks all builder lanes until a human cleans up.
+- **D-3 (docs):** the README stop note names `stop_kills_running_lane`.
+- **Tests:** `tests/smoke_test.py` now has 24 cases (the new D-1 case fails on v0.3.2; a no-re-check mutant turns it RED).
+
 ## v0.3.2 (2026-10-21)
 Driver lock owner checks and `set-state --maker` (re-check findings V-05, V-06, V-10).
 - **V-05:** a live pid in `driver.pid` counts as a driver only if its command line contains `driver.py` (case-insensitive); a reused pid is stale.
