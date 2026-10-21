@@ -332,6 +332,30 @@ def t_queue_lock_stale_breaker():   # D-1: the stale breaker must not delete a l
         sys.path[:] = old_path
         if not had_mod: sys.modules.pop("driver", None)
 
+def t_queue_lock_link_error():   # C3-01: any os.link failure while putting back a live lock must alarm and keep the live holder
+    drv_dir = os.path.dirname(os.path.abspath(DRIVER)); had_mod = "driver" in sys.modules; old_path = list(sys.path)
+    sys.path.insert(0, drv_dir)
+    import driver as D
+    d = make_repo(); old_pa = D.pid_alive; old_link = os.link; old_spins = getattr(D.QueueLock, "SPINS", None)
+    try:
+        cfg = {"runtime_dir": os.path.join(d, ".wrightcrew", "run")}; os.makedirs(cfg["runtime_dir"])
+        lk = os.path.join(cfg["runtime_dir"], "queue.lock"); live = str(os.getpid()) + "\n"
+        open(lk, "w").write("999999999"); os.utime(lk, (time.time() - 120, time.time() - 120))
+        def racing_pid_alive(pid):
+            os.remove(lk); open(lk, "w").write(live); return False
+        def no_link(a, b): raise OSError("hard links not supported")
+        D.pid_alive = racing_pid_alive; os.link = no_link; D.QueueLock.SPINS = 3
+        try:
+            with D.QueueLock(cfg): raise AssertionError("waiter C entered after the put-back failed")
+        except SystemExit: pass
+        claimed = [f for f in os.listdir(cfg["runtime_dir"]) if ".stale." in f]
+        assert claimed and open(os.path.join(cfg["runtime_dir"], claimed[0])).read() == live, "the live lock content was lost"
+    finally:
+        D.pid_alive = old_pa; os.link = old_link; rmtree(d)
+        if old_spins is not None: D.QueueLock.SPINS = old_spins
+        sys.path[:] = old_path
+        if not had_mod: sys.modules.pop("driver", None)
+
 def t_live_driver_blocks():   # W2-03: a REAL live driver still blocks a second run and recover, and status says RUNNING
     def s(d):
         rd = os.path.join(d, ".wrightcrew", "run"); pf = os.path.join(rd, "driver.pid"); logf = os.path.join(rd, "driver.log")
@@ -382,6 +406,7 @@ for n, f in [("checker guard / duplicate / bad id", t_guard), ("land -> review -
              ("V-05 recover clears a driver.pid held by a non-driver process", t_recover_foreign_pid),
              ("V-06 recover does not delete a driver.pid that changed", t_recover_owner_check),
              ("D-1 queue.lock stale breaker keeps a live lock", t_queue_lock_stale_breaker),
+             ("C3-01 queue.lock put-back failure keeps the live holder", t_queue_lock_link_error),
              ("V-10 set-state --maker; maker == checker refused", t_set_state_maker),
              ("W2-03 a live real driver blocks run and recover; status RUNNING", t_live_driver_blocks)]:
     case(n, f)

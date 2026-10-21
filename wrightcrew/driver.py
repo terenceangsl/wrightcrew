@@ -116,11 +116,14 @@ class QueueLock:
         raise SystemExit("ABORT: queue.lock busy for 30 s")
     def _break_stale(self, holder):
         """D-1 (L-26): delete only the stale file we judged. Claim it by an atomic rename (one waiter wins), then re-read:
-        if a live lock slipped in during pid_alive, put it back. Leaves one tiny window: between the rename and the put-back
-        another process may create queue.lock; that is detected (link fails) and aborts loudly instead of running unlocked."""
+        if a live lock slipped in during pid_alive, put it back. Remaining window: between the rename and the put-back a third
+        waiter can create queue.lock and enter; that is detected only if the put-back finds queue.lock present (LOCK ALARM in the
+        log, SystemExit), and the two holders may overlap briefly. Any put-back failure keeps the claimed file and aborts."""
         claimed = f"{self.path}.stale.{os.getpid()}"
+        try: os.remove(claimed)   # C3-02: only our own name, left over from an earlier alarm (Windows rename will not overwrite)
+        except OSError: pass
         try: os.rename(self.path, claimed)
-        except OSError: return   # another waiter claimed or removed it first; just retry
+        except OSError: time.sleep(0.1); return   # another waiter claimed or removed it first; pause so the 30 s budget holds, then retry
         try: now = open(claimed).read().strip()
         except OSError: now = None
         if now == holder:
@@ -128,10 +131,9 @@ class QueueLock:
             except OSError: pass
             return
         try: os.link(claimed, self.path)   # not the lock we judged: restore it, atomically, never overwriting
-        except FileExistsError:
-            log(self.cfg, f"LOCK ALARM: queue.lock was replaced twice while breaking a stale lock; live holder {now!r} kept in {claimed}")
+        except OSError as e:   # C3-01: FileExistsError or no hard links (FAT): never drop the live holder
+            log(self.cfg, f"LOCK ALARM: could not put back live queue.lock ({type(e).__name__}); live holder {now!r} kept in {claimed}")
             raise SystemExit("ABORT: queue.lock race; see driver.log (LOCK ALARM)")
-        except OSError: pass
         try: os.remove(claimed)
         except OSError: pass
     def __exit__(self, *a):

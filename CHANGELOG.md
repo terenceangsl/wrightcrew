@@ -14,10 +14,10 @@ Folds in the ten findings from the Auto Crawler work of 2026-10-19..21 (source: 
 
 ## v0.3.3 (2026-10-21)
 Three defects found by challenging seven outside reviews against the code.
-- **D-1 (important):** the `queue.lock` stale breaker could delete a live lock another waiter had just created. It now claims the stale file by atomic rename, re-reads it, and restores a live lock with `os.link`; a double race logs `LOCK ALARM` and aborts. One tiny window remains (rename to put-back) and it fails loudly, never unlocked.
+- **D-1 (important):** the `queue.lock` stale breaker could delete a live lock another waiter had just created. It now claims the stale file by atomic rename, re-reads it, and restores a live lock with `os.link`; any put-back failure (lock already present, or no hard links) logs `LOCK ALARM`, keeps the claimed file and aborts. One window remains (rename to put-back): a third waiter can take the lock there, and it is detected only if the put-back finds `queue.lock` present, so two writers may briefly overlap (round 2: C3-01 any link error, C3-02 stale-claim cleanup and 0.1 s pause).
 - **D-2 (docs):** L-30 now says what the driver does: no `[ID]` commit means `failed`; a lane that leaves guarded files dirty blocks all builder lanes until a human cleans up.
 - **D-3 (docs):** the README stop note names `stop_kills_running_lane`.
-- **Tests:** `tests/smoke_test.py` now has 24 cases (the new D-1 case fails on v0.3.2; a no-re-check mutant turns it RED).
+- **Tests:** `tests/smoke_test.py` now has 25 cases (the D-1 case fails on v0.3.2; the C3-01 link-error case fails on 2c01ac6; a no-re-check mutant turns D-1 RED).
 
 ## v0.3.2 (2026-10-21)
 Driver lock owner checks and `set-state --maker` (re-check findings V-05, V-06, V-10).
