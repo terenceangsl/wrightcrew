@@ -6,7 +6,7 @@ Requires Python 3.9+ and git on PATH. Run every command from the repo root.
   python wrightcrew/driver.py run                    # the USER starts this, in their own terminal (L-07)
   python wrightcrew/driver.py status [--all]
   python wrightcrew/driver.py add ID ROLE PROMPT [--state draft|queued|hold] [--maker M] [--checker C] [--front] [--order N]
-  python wrightcrew/driver.py set-state ID STATE [--checker C] [--note TEXT] [--force]
+  python wrightcrew/driver.py set-state ID STATE [--maker M] [--checker C] [--note TEXT] [--force]
   python wrightcrew/driver.py reset-streak           # re-enable builder lanes after the failure-streak pause
   python wrightcrew/driver.py recover                # mark orphaned `running` items failed (only when no driver runs)
   python wrightcrew/driver.py stop                   # writes the stop file; a running lane is ended too
@@ -59,6 +59,33 @@ def pid_alive(pid):
         return re.search(rf"\b{pid}\b", r.stdout) is not None
     try: os.kill(pid, 0); return True
     except OSError: return False
+
+def cmdline_of(pid):
+    """Command line of a live pid, or None if it cannot be read (V-05)."""
+    try:
+        if os.name == "nt":
+            r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command",
+                                f"(Get-CimInstance Win32_Process -Filter 'ProcessId={int(pid)}').CommandLine"],
+                               capture_output=True, text=True, timeout=30)
+            out = r.stdout.strip()
+        elif os.path.exists(f"/proc/{pid}/cmdline"):
+            with open(f"/proc/{pid}/cmdline", "rb") as f: out = f.read().replace(b"\x00", b" ").decode("utf-8", "replace").strip()
+        else:
+            out = subprocess.run(["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True, timeout=30).stdout.strip()
+        return out or None
+    except (OSError, subprocess.SubprocessError, ValueError): return None
+
+def driver_alive(pid):
+    """True if pid is alive AND is a Wrightcrew driver, so a reused pid does not look like a driver (V-05).
+    If the command line cannot be read, be conservative: count it as a driver."""
+    if not pid_alive(pid): return False
+    c = cmdline_of(pid)
+    return True if c is None else "driver.py" in c.lower()   # W2-02: Windows paths are case-insensitive (DRIVER.PY)
+
+def manual_exit(cfg, pid):
+    """W2-05: suggest deleting driver.pid by hand only when the command line could not be read."""
+    if cmdline_of(pid) is not None: return f"pid {pid} is a Wrightcrew driver; use `driver.py stop`."
+    return f"The command line of pid {pid} cannot be read; if it is not a Wrightcrew driver, delete {P(cfg, 'driver.pid')} by hand."
 
 def kill_tree(pid):
     """Kill a process and all its children, by PID (never by image name, L-04)."""
@@ -307,7 +334,7 @@ def acquire_driver_lock(cfg):
                 except FileExistsError: pass
             old = read_pid_file(pidf)
             if old is None: continue                       # vanished between the attempt and the read: retry
-            if old.isdigit() and pid_alive(int(old)): raise SystemExit(f"ABORT: a driver is already running (pid {old})")
+            if old.isdigit() and driver_alive(int(old)): raise SystemExit(f"ABORT: a driver is already running (pid {old}). {manual_exit(cfg, old)}")
             if attempt == 0: time.sleep(2); continue       # maybe a writer is mid-write: look again once
             raise SystemExit(f"ABORT: driver.pid exists but holds no live driver (contents {old!r}). If no driver is "
                              f"alive, run `python wrightcrew/driver.py recover` to clear it, then start again.")
@@ -409,9 +436,9 @@ def cmd_status(cfg):
     with QueueLock(cfg): q = read_q(cfg)
     pidf = P(cfg, "driver.pid")
     pid = open(pidf).read().strip() if os.path.exists(pidf) else ""
-    alive = pid.isdigit() and pid_alive(int(pid))
+    alive = pid.isdigit() and driver_alive(int(pid))
     stale = os.path.exists(pidf) and not alive
-    print(f"driver: {'RUNNING pid ' + pid if alive else ('stale lock (driver.pid ' + repr(pid) + ') - run `driver.py recover`' if stale else 'not running')} - builder fail streak {q['builder_fail_streak']}"
+    print(f"driver: {'RUNNING pid ' + pid + ' (' + manual_exit(cfg, pid) + ')' if alive else ('stale lock (driver.pid ' + repr(pid) + ') - run `driver.py recover`' if stale else 'not running')} - builder fail streak {q['builder_fail_streak']}"
           f" - stop: {stop_reason(cfg) or 'none'}")
     counts = {}
     for it in q["items"]: counts[it["state"]] = counts.get(it["state"], 0) + 1
@@ -446,9 +473,10 @@ def cmd_set_state(cfg, a):
             raise SystemExit(f"its lane pid {it['lane_pid']} is still alive; kill that PID first")
         if a.state == "queued" and it["role"] == "builder" and not (a.checker or it.get("checker")):
             raise SystemExit("a builder item cannot be queued without a checker (L-12): pass --checker")
-        if a.state == "queued" and it["role"] == "builder": check_queueable(it.get("maker"), a.checker or it.get("checker"))
+        if a.state == "queued" and it["role"] == "builder": check_queueable(a.maker or it.get("maker"), a.checker or it.get("checker"))
         it["state"] = a.state; it["updated"] = stamp()
         if a.checker: it["checker"] = a.checker
+        if a.maker: it["maker"] = a.maker   # (V-10)
         if a.note: it["note"] = a.note
     mutate(cfg, f); print(f"{a.id} -> {a.state}")
 
@@ -462,7 +490,7 @@ def main():
     a.add_argument("--state", default="draft"); a.add_argument("--maker", default=""); a.add_argument("--checker", default="")
     a.add_argument("--front", action="store_true"); a.add_argument("--order", type=float)
     st = sub.add_parser("set-state"); st.add_argument("id"); st.add_argument("state")
-    st.add_argument("--checker"); st.add_argument("--note"); st.add_argument("--force", action="store_true")
+    st.add_argument("--checker"); st.add_argument("--maker"); st.add_argument("--note"); st.add_argument("--force", action="store_true")
     args = ap.parse_args()
     cfg = load_config(args.config)
     if args.cmd == "run": cmd_run(cfg)
@@ -472,10 +500,13 @@ def main():
         print("stop file written; the driver ends the running lane and exits")
     elif args.cmd == "reset-streak": mutate(cfg, lambda q: q.__setitem__("builder_fail_streak", 0)); print("streak reset")
     elif args.cmd == "recover":
-        pid = open(P(cfg, "driver.pid")).read().strip() if os.path.exists(P(cfg, "driver.pid")) else ""
-        if pid.isdigit() and pid_alive(int(pid)): raise SystemExit(f"a driver is running (pid {pid}); stop it first")
+        pidf = P(cfg, "driver.pid"); pid = read_pid_file(pidf)   # one read (V-06)
+        if pid is not None and pid.isdigit() and driver_alive(int(pid)): raise SystemExit(f"a driver is running (pid {pid}); stop it first. {manual_exit(cfg, pid)}")
         reconcile(cfg)
-        if os.path.exists(P(cfg, "driver.pid")): os.remove(P(cfg, "driver.pid"))   # stale lock: only recover clears it (W-04)
+        if pid is not None:   # delete only the value we read; a new driver may have taken the lock meanwhile (V-06)
+            if read_pid_file(pidf) != pid: print(f"driver.pid changed to {read_pid_file(pidf)!r} during recover; NOT deleted"); sys.exit(2)
+            try: os.remove(pidf)   # stale lock: only recover clears it (W-04)
+            except FileNotFoundError: pass
         print("recovered")
     elif args.cmd == "add":
         if args.role not in cfg["roles"]: raise SystemExit(f"unknown role {args.role}; roles: {list(cfg['roles'])}")

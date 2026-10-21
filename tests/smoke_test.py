@@ -279,6 +279,69 @@ def t_lock_released_on_early_error():   # V-08
         assert not os.path.exists(os.path.join(rd, "driver.pid")), "lock left behind after an early exception"
     return with_repo("land", s)
 
+def t_recover_foreign_pid():   # V-05: a live pid that is not a driver (reused pid) does not block recover
+    def s(d):
+        rd = os.path.join(d, ".wrightcrew", "run"); os.makedirs(rd); pf = os.path.join(rd, "driver.pid")
+        fp = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+        try:
+            open(pf, "w").write(str(fp.pid))
+            r = drv(d, "recover")
+            assert r.returncode == 0 and not os.path.exists(pf), f"recover refused a non-driver pid (rc {r.returncode}): {r.stdout!r} {r.stderr!r}"
+        finally: fp.kill(); fp.wait()
+    return with_repo("land", s)
+
+def t_recover_owner_check():   # V-06: recover deletes driver.pid only if it still holds the value it read
+    import contextlib, io
+    drv_dir = os.path.dirname(os.path.abspath(DRIVER)); had_mod = "driver" in sys.modules; old_path = list(sys.path)   # W2-07
+    sys.path.insert(0, drv_dir)
+    import driver as D
+    d = make_repo(); old_cwd = os.getcwd(); old_rec = D.reconcile; old_argv = sys.argv
+    try:
+        rd = os.path.join(d, ".wrightcrew", "run"); os.makedirs(rd); pf = os.path.join(rd, "driver.pid")
+        open(pf, "w").write("999999999")                    # dead pid
+        def racing_reconcile(cfg): open(pf, "w").write("424242")   # a new driver takes the lock during recover
+        D.reconcile = racing_reconcile; os.chdir(d); sys.argv = ["driver.py", "recover"]
+        try:
+            with contextlib.redirect_stdout(io.StringIO()): D.main()   # W2-07: keep driver output out of the suite output
+        except SystemExit as e: assert e.code not in (0, None), f"recover reported success after the lock changed (code {e.code})"
+        assert os.path.exists(pf) and open(pf).read() == "424242", "recover deleted a driver.pid whose value changed"
+    finally:
+        D.reconcile = old_rec; sys.argv = old_argv; os.chdir(old_cwd); rmtree(d)
+        sys.path[:] = old_path
+        if not had_mod: sys.modules.pop("driver", None)
+
+def t_live_driver_blocks():   # W2-03: a REAL live driver still blocks a second run and recover, and status says RUNNING
+    def s(d):
+        rd = os.path.join(d, ".wrightcrew", "run"); pf = os.path.join(rd, "driver.pid"); logf = os.path.join(rd, "driver.log")
+        p = subprocess.Popen([sys.executable, DRIVER, "run"], cwd=d, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            end = time.time() + 30
+            while time.time() < end and not (os.path.exists(logf) and "START" in open(logf, encoding="utf-8").read()): time.sleep(0.3)
+            assert os.path.exists(pf), "driver did not start"
+            pid = open(pf).read().strip()
+            r = drv(d, "run", timeout=60)
+            assert r.returncode != 0 and "already running" in r.stdout + r.stderr, f"second run not refused (rc {r.returncode}): {r.stdout!r} {r.stderr!r}"
+            r = drv(d, "recover", timeout=60)
+            assert r.returncode == 1, f"recover on a live driver gave rc {r.returncode}: {r.stdout!r} {r.stderr!r}"
+            assert os.path.exists(pf) and open(pf).read().strip() == pid, "recover touched a live driver's driver.pid"
+            assert f"RUNNING pid {pid}" in drv(d, "status", timeout=60).stdout, "status does not say RUNNING"
+        finally:
+            open(os.path.join(rd, "STOP"), "w").write("x")
+            try: p.wait(40)
+            except subprocess.TimeoutExpired: p.kill(); p.wait()
+    return with_repo("land", s)
+
+def t_set_state_maker():   # V-10
+    def s(d):
+        assert drv(d, "add", "X", "builder", "prompts/p.md", "--state", "draft").returncode == 0
+        r = drv(d, "set-state", "X", "queued", "--maker", "sonnet", "--checker", "opus")
+        assert r.returncode == 0, f"set-state --maker refused (rc {r.returncode}): {r.stderr!r}"
+        assert "maker=sonnet" in drv(d, "status").stdout, "maker not set"
+        drv(d, "add", "Y", "builder", "prompts/p.md")
+        r = drv(d, "set-state", "Y", "queued", "--maker", "opus", "--checker", "opus")
+        assert r.returncode == 1, f"maker == checker accepted via set-state --maker (rc {r.returncode})"
+    return with_repo("land", s)
+
 for n, f in [("checker guard / duplicate / bad id", t_guard), ("land -> review -> reviewed; draft held", t_land_and_review),
              ("C-1 unicode subject", t_unicode), ("C-2 missing runner -> failed", t_missing_runner),
              ("I-1 review covers the card range", t_review_range), ("I-2 CARD-CONFLICT text mid-subject", t_conflict_text),
@@ -293,7 +356,11 @@ for n, f in [("checker guard / duplicate / bad id", t_guard), ("land -> review -
              ("W-14 status output is ASCII", t_status_ascii),
              ("V-04 queued builder item needs a maker", t_queue_needs_maker),
              ("V-07 status flags a stale driver.pid", t_status_stale_lock),
-             ("V-08 lock released after an early exception", t_lock_released_on_early_error)]:
+             ("V-08 lock released after an early exception", t_lock_released_on_early_error),
+             ("V-05 recover clears a driver.pid held by a non-driver process", t_recover_foreign_pid),
+             ("V-06 recover does not delete a driver.pid that changed", t_recover_owner_check),
+             ("V-10 set-state --maker; maker == checker refused", t_set_state_maker),
+             ("W2-03 a live real driver blocks run and recover; status RUNNING", t_live_driver_blocks)]:
     case(n, f)
 for r, n in results: print(f"{r:<4} {n}")
 print(f"{sum(r == 'ok' for r, _ in results)} ok / {sum(r == 'FAIL' for r, _ in results)} FAIL")

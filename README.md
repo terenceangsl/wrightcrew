@@ -18,13 +18,13 @@ A *wright* is a maker: a shipwright, a playwright, a wheelwright. Wrightcrew is 
 5. **No server, no database.** One JSON file plus git is the whole state; a `[CARD-ID]` in a commit subject *is* the status update.
 6. **Honest about permissions.** Agents never start their own loops or widen their own access; the user does, and reverts.
 
-## Runs on Strata
+## Runs on a local model server
 
-Wrightcrew is the crew; **Strata** is the ground it builds on, the local model server that does the work. They meet at two points in `wrightcrew.config.json`:
-- `health_url`: Strata's model endpoint (e.g. `http://127.0.0.1:8080/v1/models`). The driver waits while it is down and never starts a lane against a dead server.
-- `runner`: the agent harness command that talks to Strata (e.g. `pi -p --mode json --provider local --model <strata model>`), wrapped by `tools/run_lane.example.py` for the timeout and the process-tree kill.
+Wrightcrew works with any local model server that exposes an OpenAI-style endpoint (for example llama.cpp's server, Ollama, LM Studio or vLLM; these are examples, not a tested list). The author runs it on [Strata](https://github.com/niko1221/strata). The two meet at two points in `wrightcrew.config.json`:
+- `health_url`: the server's model endpoint (e.g. `http://127.0.0.1:8080/v1/models`). The driver waits while it is down and never starts a lane against a dead server.
+- `runner`: the agent harness command that talks to the server (e.g. `pi -p --mode json --provider local --model <your model>`), wrapped by `tools/run_lane.example.py` for the timeout and the process-tree kill.
 
-Strata serves one request at a time, so Wrightcrew runs **one lane at a time** and keeps Claude out of the lane loop. One driver per repo is enforced by a lock (`driver.pid`, written atomically and deleted only by its owner); `driver.py recover` is the only way to clear a stale lock. Interactive Claude sessions and Strata lanes don't compete: no lanes run once you create `.wrightcrew/run/USER_BACK`.
+Many local servers serve one request at a time; Wrightcrew runs **one lane at a time** either way, and keeps Claude out of the lane loop. One driver per repo is enforced by a lock (`driver.pid`, written atomically and deleted only by its owner). A `driver.pid` whose pid is dead, or alive but not a Wrightcrew driver (a reused pid), counts as stale; `driver.py recover` is the only way to clear it, and it deletes the file only if it still holds the value it read. If the process command line cannot be read, the pid is treated as a driver, and the refusal message and `status` say which file to delete by hand (they say it only in that case; a readable driver gets "use `driver.py stop`"). Interactive Claude sessions and local lanes don't compete: no lanes run once you create `.wrightcrew/run/USER_BACK`.
 
 ## What's in the box
 
@@ -69,7 +69,7 @@ Requires Python 3.9+ and git. Run every command from **your project's root**.
    ```
    python wrightcrew/driver.py add FIX-S02 builder prompts/fix_s02.md --state queued --maker sonnet --checker opus
    ```
-   Unchecked work goes in as a draft, e.g. `python wrightcrew/driver.py add FIX-S02 builder prompts/fix_s02.md --state draft --maker sonnet`, and is promoted later with `set-state FIX-S02 queued --checker opus`. Set the maker when you add a draft: `set-state` cannot add it later.
+   Unchecked work goes in as a draft, e.g. `python wrightcrew/driver.py add FIX-S02 builder prompts/fix_s02.md --state draft --maker sonnet`, and is promoted later with `set-state FIX-S02 queued --checker opus`. A draft added without a maker can get one later: `set-state FIX-S02 queued --maker sonnet --checker opus`.
 5. **Isolate the lanes.** Builder lanes get read/edit/write/bash. Run them in a separate clone or under a low-privilege account with no secrets (`docs/permissions.md` §A), not in your real working repo.
 6. Remove any leftover `.wrightcrew/run/STOP` or `USER_BACK`, then start the driver yourself, in your own terminal (never an agent):
    ```
@@ -91,19 +91,17 @@ Requires Python 3.9+ and git. Run every command from **your project's root**.
 
 ## Status
 
-v0.3.1, 2026-10-19. The driver generalises the one that ran the Auto Crawler away-week.
+v0.3.2, 2026-10-21. The driver generalises the one that ran the Auto Crawler away-week.
+- **Changed since v0.3.1.** V-05: a live pid in `driver.pid` counts as a driver only if its command line contains `driver.py` (a reused pid is stale); V-06: `recover` reads `driver.pid` once and deletes it only if the value is unchanged; V-10: `set-state --maker`; W2-02: the driver.py check ignores case (Windows); W2-05: the delete-by-hand hint appears only when the command line cannot be read; the "Runs on" section now describes any OpenAI-style local server. Smoke tests: 23 cases.
 - **Changed since v0.3.** Checker equal to maker is refused; the driver lock is written atomically and deleted only by its owner (an empty or dead `driver.pid` is LOCKED until `recover`); a WARNING is logged for each missing `guarded_paths` entry; `status` prints ASCII and flags a stale lock; a queued builder card needs a named maker; the health script reports MODEL DOWN correctly; the README claims are now measured and the quick start covers the runner, isolation and gitignore; lessons L-23..L-34 and `docs/budget.md` are new; MIT license.
-- **Checked.** A fresh Opus checker reviewed v0.1 (2 critical, 10 important) and v0.2 (1 new critical, 1 important); all are fixed in v0.3. The v0.3 rename and README were re-checked by a fresh checker (14 findings W-01..W-14, fixed in v0.3.1). Re-checked 2026-10-19 by a fresh checker in two rounds: final verdict RELEASE (round 1 findings V-01..V-09 and round 2 findings V-10..V-11 fixed, except V-05/V-06, planned for v0.3.2).
-- **Tested.** `tests/smoke_test.py` covers the checker's reproductions plus the core paths: 19 cases.
+- **Checked.** A fresh Opus checker reviewed v0.1 (2 critical, 10 important) and v0.2 (1 new critical, 1 important); all are fixed in v0.3. The v0.3 rename and README were re-checked by a fresh checker (14 findings W-01..W-14, fixed in v0.3.1). Re-checked 2026-10-19 by a fresh checker in two rounds: final verdict RELEASE (round 1 findings V-01..V-09 and round 2 findings V-10..V-11; V-05, V-06 and V-10 fixed in v0.3.2). v0.3.2 was then checked by a fresh Opus checker in two rounds: final verdict RELEASE.
+- **Tested.** `tests/smoke_test.py` covers the checker's reproductions plus the core paths: 23 cases.
 - **Not yet run for real.** It has not driven a real model lane in this generic form, so point it at a throwaway repo first.
 - **Limits:**
   - The `--checker` guard is free text: it refuses a queued builder card with no maker, no checker, or checker == maker, but any lane with a shell could still self-queue under another name. Lanes are isolated by OS means instead (`docs/permissions.md`).
   - Review findings become fix cards by hand (mentor or planner); this is not automated.
 
 **Planned next:**
-- `set-state --maker` so a draft added without a maker can still be queued (V-10).
-- V-05: a reused pid can make a stale `driver.pid` look alive; check the process command line, not just the pid.
-- V-06: `recover` deletes `driver.pid` without an owner check; delete only if it still holds the same dead value.
 - Resume the lane's agent session when retrying a stopped card, instead of a cold start (L-22).
 - A small HTML dashboard over `queue.json`.
 
