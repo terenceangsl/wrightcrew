@@ -32,10 +32,12 @@ def summarise(path, tail=600):
             if t == "agent_settled":
                 settled = True
             if t == "message_end":
-                m = e.get("message") or {}
-                if m.get("role") == "assistant":
+                m = e.get("message")
+                if isinstance(m, dict) and m.get("role") == "assistant":
                     last_stop = m.get("stopReason")
                     for part in m.get("content") or []:
+                        if not isinstance(part, dict):
+                            continue
                         if part.get("type") == "text":
                             last_text = part.get("text", "")
                         if part.get("type") in ("toolCall", "tool_use"):

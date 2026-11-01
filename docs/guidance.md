@@ -10,9 +10,9 @@ A local model needed no fine-tuning to get better. What changed it was four writ
 | **Gates** | Automatic checks the lane runs on itself (the suite's summary line, palette/size rules, probes). | Cheap, tireless, and the lane sees the result before it stops. |
 | **Scorecard** | One row per lane: kind, gates on the first try, checker findings, fix rounds, verdict. | The trend is the readiness measure; it tells you how much to trust the lane. |
 
-## Results (source: `LOCAL_SCORECARD.md`)
-- Code cards: checker findings fell from 4 Important + 3 minor (card 3) to 1 minor (card 5, the first clean code pass).
-- Art: hand-drawn screens failed (dot grid, black trees, flat colour). Once a recipe existed, 5 of 5 zone screens passed all gates on the first try (findings file item 1). Separately, the local lanes then repeated one strong-model example for 7 zones, and one batch made 20 creature sprites in 31 min (item 2).
+## Results (sources: `LOCAL_SCORECARD.md` and the findings file; both are in the Auto Crawler repo, `scratch/_mentor_20261019/`, and not shipped here)
+- Code cards: checker findings fell from 4 Important + 3 minor, then 3 small (card 3) to 1 minor (card 5, the first clean code pass).
+- Art: hand-drawn screens mostly failed (dot grid, black trees, flat colour). Once a recipe existed, 5 of 5 zone screens passed all gates on the first try (findings file item 1). Separately, the local lanes then repeated one strong-model example for 7 zones, and one batch made 20 creature sprites in 31 min (item 2).
 - These are one project and one model family. Treat them as an existence proof, not a rate.
 
 ## The loop
@@ -24,7 +24,7 @@ A local model needed no fine-tuning to get better. What changed it was four writ
 
 ## Gates are necessary, not sufficient (L-37, L-38)
 - Lanes passed every numeric gate while the art was flat, plaid, or had lost its signature features. A gate measures what you thought of.
-- Every gate is eventually gamed or misses something. In the example project a "busy surface" metric was met by a perfect grid (plaid), a
+- In the example project, every gate tried was eventually gamed or missed something: a "busy surface" metric was met by a perfect grid (plaid), a
   colour-connectivity check failed on rich art, and a halo gate read 0 while halos were visible.
 - **Rule: when a human sees a defect the gate missed, first make the gate FAIL on it, then fix the work.** A gate that cannot go red on the known defect proves nothing.
 - Close every batch with a taste check by a human or a strong model.

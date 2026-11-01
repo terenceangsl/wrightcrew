@@ -1,16 +1,16 @@
 # Changelog
 
-## v0.4.0 (draft, 2026-10-21, branch `v0.4-findings`, not yet checked)
+## v0.4.0 (draft, 2026-10-21; checked by a fresh Opus checker 2026-11-01, must-fixes MF-1..MF-5 and most should-fixes applied)
 Folds in the ten findings from the Auto Crawler work of 2026-10-19..21 (source: `WRIGHTCREW_FINDINGS_20261021.md`).
 - **Lessons:** L-35..L-44 in `docs/lessons.md`, one per finding.
 - **New doc:** `docs/guidance.md`: lessons-as-memory, recipe from a strong model, gates, the self-look step for vision models, the scorecard.
 - **Docs:** `docs/pipeline.md` §6b lane hygiene (JSON logs, lane cap, fix-cycle cap, lanes never edit the orchestrator's files);
-  `docs/roles.md` (art director, maker/checker evidence); `docs/budget.md` (watch the 5-hour window first).
+  `docs/roles.md` (art director, maker/checker evidence); `docs/budget.md` (watch both windows, L-43).
 - **Tools:** `tools/lane_summary.py` (JSONL lane-log summariser), `templates/lessons_file.md` (lessons-file template).
 - **Config:** the example runner now uses `pi -p --mode json` (L-40).
-- **Tests:** `tests/test_lane_summary.py`.
+- **Tests:** `tests/test_lane_summary.py` (5 cases).
 - Not part of this entry: the v0.3.2 work (V-05, V-06, V-10); it is its own entry below.
-- **Needs a fresh checker** before release (L-12, L-23): every number must be traced to the findings file.
+- **Re-check needed** (L-23): the post-check fixes are a new diff and need a fresh checker.
 
 ## v0.3.3 (2026-10-21)
 Three defects found by challenging seven outside reviews against the code.

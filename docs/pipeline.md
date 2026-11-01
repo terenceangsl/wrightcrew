@@ -76,12 +76,11 @@ STOP, `USER_BACK`, the deadline or a timeout can kill a builder lane mid-edit. B
   after a timeout, and says why a run ended (`stopReason`, `agent_settled`). Measured on one model: a run cut at 25 s kept 354,378 B in
   JSON mode and 0 B in text mode (`pi_mode_test_20261020.md`, findings file item 6).
 - **Never read a lane log whole.** `python tools/lane_summary.py <lane.log>` prints event counts, whether the run settled, the last
-  stopReason, tool calls by name, errors and the tail of the final text. Exit code 0 = settled, 2 = not settled.
-- **Cap each lane.** Set `lane_timeout_s` well below the 14400 s default for a local lane (the author's cap is 90 min = 5400 s). One uncapped lane looped
-  424 turns over 2.5 h.
-- **Fix cycles.** At most 3 per card, and no "it is a new failure" exception: the same cap applies however the failures differ.
-- **Lanes do not edit the orchestrator's files.** The lessons file, state file and queue belong to the orchestrator (L-42);
-  a lane proposes a lesson in its handoff entry. Guard those paths the way you guard product code.
+  stopReason, tool calls by name, errors and the tail of the final text. Exit code 0 = settled, 2 = not settled, 1 = unreadable file.
+- **Cap each lane.** Set `lane_timeout_s` well below the 14400 s default for a local lane (the author's cap is 90 min = 5400 s). One lane looped
+  424 turns over 2.5 h (findings file item 8).
+- **Fix cycles.** The driver does not count them: the cap of 3 per card is the builder's in-lane rule (`AGENTS.md` §4), with no "it is a new failure" exception; across lanes only `max_builder_fail_streak` applies.
+- **Lanes do not edit the orchestrator's files.** The lessons file, state file and queue belong to the orchestrator (L-42); a lane proposes a lesson in its handoff entry. Listing them in `guarded_paths` makes a docs or review lane that touches them fail (READ-ONLY VIOLATION), but does not stop a builder lane, and an uncommitted orchestrator edit there blocks all builder lanes until it is committed. Keep them outside the builder's clone, or check every builder diff for them.
 
 ## 7. Park rule
 A card family (same id stem) with **2 CARD-CONFLICT stops** in a row is `parked` for the user, not re-issued. (L-11)

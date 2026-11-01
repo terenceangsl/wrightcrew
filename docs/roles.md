@@ -37,7 +37,7 @@ The final say. Taste calls (art, story, feel, balance), one-line vetoes, and sta
 
 ## Art director (a strong model, for any craft with a taste bar)
 - Makes **one** quality-bar example and a written recipe; the local lanes then repeat it at volume (L-36). Read-only on product code.
-- Owns the per-role lessons file for that craft (see `docs/guidance.md`). Reviews each batch against the bar, because gates alone miss defects (L-37, L-38).
+- Drafts the lessons for that craft's lessons file (see `docs/guidance.md`); the orchestrator alone edits the file (L-42). Reviews each batch against the bar, because gates alone miss defects (L-37, L-38).
 
 ## Reader (Haiku)
 - Cheap bulk reading: logs, git history, queue state, external repos and docs. Numbers-only summaries.
@@ -59,6 +59,6 @@ whatever the model, and the same session never wears both hats.
 |---|---|
 | reading logs, history, external pages | Haiku |
 | writing cards, prompts, story wiring | Sonnet (bulk) or Opus (tricky) |
-| checking prompts and landings | **fresh** Opus |
+| checking prompts and landings | **fresh** Sonnet (routine cards) or **fresh** Opus (tricky ones) (L-39) |
 | building | local LLM (unattended), driven by `wrightcrew/driver.py` |
 | decisions, routing, user conversation | Opus (mentor) |

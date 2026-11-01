@@ -13,9 +13,9 @@ Facts from the Auto Crawler week (see L-31, L-33, L-34 in `docs/lessons.md`).
 - Scheduled checks only review above 60%.
 - A hard tripwire on paid spend.
 
-## Watch the 5-hour window first (L-43)
-Extra paid usage grew when the weekly figure reached 98-100 % (findings file item 9). Read the short window before every wave, not only the weekly figure.
-When it is high: draft, don't launch. Whenever the local model is idle, give it the work: it is free.
+## Watch both windows (L-43)
+Extra paid usage also grew when the weekly figure reached 98-100 % (findings file item 9). Read the short window and the weekly figure before every wave.
+When either is high: draft, don't launch. Whenever the local model is idle, give it the work (it costs no paid usage, L-34).
 
 ## Pattern: draft while the window is full, launch after the reset
 - Cheap work (briefs, prompts, reading via a small model) runs at any time.
@@ -26,6 +26,6 @@ When it is high: draft, don't launch. Whenever the local model is idle, give it 
 | Model | Does |
 |---|---|
 | Small (Haiku) | bulk reading |
-| Mid (Sonnet) | prompts, reviews, drafts |
-| Top (Opus) | fresh checks |
+| Mid (Sonnet) | prompts, reviews, drafts, routine fresh checks (L-39) |
+| Top (Opus) | the orchestrator; fresh checks of tricky items |
 | Local model | all building, suites and long runs (free, one lane at a time) |

@@ -53,12 +53,18 @@ def t_errors_tail():
     assert r["errors"] == ["e2", "e3", "e4"], r
 
 
+def t_odd_shapes():
+    r, rc = run(['{"type": "message_end", "message": "text"}', '{"type": "message_end", "message": {"role": "assistant", "content": ["x", 3]}}', '[1]', '{"type": "agent_settled"}'])
+    assert r["settled"] and rc == 0, (r, rc)
+
+
 def t_missing():
     assert lane_summary.main(["no_such_file.log"]) == 1
 
 
 for n, f in [("settled run summarised", t_settled), ("unsettled run, bad lines counted, rc 2", t_not_settled),
-             ("last 3 errors kept", t_errors_tail), ("missing file rc 1", t_missing)]:
+             ("last 3 errors kept", t_errors_tail), ("missing file rc 1", t_missing),
+             ("odd JSON shapes do not crash", t_odd_shapes)]:
     case(n, f)
 for r, n in results:
     print(f"{r:<4} {n}")

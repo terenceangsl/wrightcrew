@@ -35,7 +35,7 @@ It is not a framework or a server. It is:
 - **A driver** (`wrightcrew/driver.py`). It runs queued lanes one at a time with no Claude in the loop: one state file, stop files, a deadline, and a post-landing review.
 - **Templates** for cards, builder prompts, check reports, handoff entries and the planner refill.
 - **A lessons file**, which records each incident and the rule it produced.
-- **Two small tools** (v0.4 draft): `tools/lane_summary.py`, a JSONL lane-log summariser, and `templates/lessons_file.md`, a per-role lessons-file template.
+- **A lane-log summariser and a template** (v0.4 draft): `tools/lane_summary.py` summarises a JSONL lane log, and `templates/lessons_file.md` is a per-role lessons-file template.
 - **A guidance guide** (`docs/guidance.md`): how lessons, a recipe, gates and a scorecard trained a local model without fine-tuning.
 
 ## The crew
@@ -91,7 +91,7 @@ Requires Python 3.9+ and git. Run every command from **your project's root**.
 
 ## Status
 
-v0.3.3, 2026-10-21. The driver generalises the one that ran the Auto Crawler away-week.
+v0.3.3 plus the v0.4 draft docs and tools (CHANGELOG), 2026-10-21. The driver generalises the one that ran the Auto Crawler away-week.
 - **Changed since v0.3.2.** D-1: the `queue.lock` stale breaker claims the stale file by atomic rename, re-reads it, and puts a live lock back instead of deleting it (L-26); D-2: L-30 now describes what the driver does; D-3: the README stop note names `stop_kills_running_lane`. Smoke tests: 25 cases.
 - **Changed in v0.3.2.** V-05: a live pid in `driver.pid` counts as a driver only if its command line contains `driver.py` (a reused pid is stale); V-06: `recover` reads `driver.pid` once and deletes it only if the value is unchanged; V-10: `set-state --maker`; W2-02: the driver.py check ignores case (Windows); W2-05: the delete-by-hand hint appears only when the command line cannot be read; the "Runs on" section now describes any OpenAI-style local server. Smoke tests: 23 cases.
 - **Changed since v0.3.** Checker equal to maker is refused; the driver lock is written atomically and deleted only by its owner (an empty or dead `driver.pid` is LOCKED until `recover`); a WARNING is logged for each missing `guarded_paths` entry; `status` prints ASCII and flags a stale lock; a queued builder card needs a named maker; the health script reports MODEL DOWN correctly; the README claims are now measured and the quick start covers the runner, isolation and gitignore; lessons L-23..L-34 and `docs/budget.md` are new; MIT license.
