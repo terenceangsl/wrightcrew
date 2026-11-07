@@ -73,8 +73,8 @@ See `docs/roles.md`. The short form:
 ## 9. Versioning
 These rules apply from v0.4.0 on. Before them, v0.3.2, v0.3.3 and the v0.4 draft reached origin/main untagged, and v0.3.1 is a lightweight tag; none of that is rewritten. The one exception to rule 3: v0.4.0 is built on origin/main (afb1876), which carries that untagged work, and it is the first release to follow these rules. (L-12, L-23)
 1. One version is one CHANGELOG entry and one annotated tag on main (v0.4.0 onward), made only after a fresh check passes. Unchecked work is "Unreleased" at the top of the CHANGELOG, never a numbered draft.
-2. A release bumps one step. Patch for fixes or docs, minor for features. Never stack drafts (no x.y.1 on an unreleased x.y.0). Docs-only changes join the next release and never get their own number.
+2. A release bumps one step. Patch for fixes, minor for features. Never stack drafts (no x.y.1 on an unreleased x.y.0). Docs changes ride along in the next release and never get their own number.
 3. A release branch starts from the previous release tag, with no unreleased work underneath it.
-4. Only checked releases go on main. Drafts live on local branches with no upstream. Local main equals origin/main after each release.
+4. Only checked releases go on main. Drafts live on branches, never on main; delete a draft branch after its merge. Local main equals origin/main after each release.
 5. The same commit updates the README status, test counts and lesson range; the checker verifies them against the CHANGELOG.
 6. Set `user.name` and the noreply email before the first commit. Every commit subject starts with `[CARD-ID]`, release commits included.
