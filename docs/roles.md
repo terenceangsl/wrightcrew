@@ -35,7 +35,8 @@ The final say. Taste calls (art, story, feel, balance), one-line vetoes, and sta
 - Output: a findings register (CRITICAL / IMPORTANT / MINOR; CONFIRMED vs PLAUSIBLE), each with a failure scenario and a one-line fix.
 - Never the builder of what it audits.
 
-## Art director (a strong model, for any craft with a taste bar)
+## Art director (Claude, for any craft with a taste bar)
+- Claude does the vision checks of the art. In the author's own tests Claude was the one that handled these checks correctly.
 - Makes **one** quality-bar example and a written recipe; the local lanes then repeat it at volume (L-36). Read-only on product code.
 - Drafts the lessons for that craft's lessons file (see `docs/guidance.md`); the orchestrator alone edits the file (L-42). Reviews each batch against the bar, because gates alone miss defects (L-37, L-38).
 
