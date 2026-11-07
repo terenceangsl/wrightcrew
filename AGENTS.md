@@ -71,7 +71,8 @@ See `docs/roles.md`. The short form:
 - Paid-model pacing: see `docs/budget.md`. Draft while the usage window is full; launch heavy agents after the reset. (L-31)
 
 ## 9. Versioning
-1. One version is one CHANGELOG entry and one annotated tag on main, made only after a fresh check passes. Unchecked work is "Unreleased" at the top of the CHANGELOG, never a numbered draft.
+These rules apply from v0.4.0 on. Before them, v0.3.2, v0.3.3 and the v0.4 draft reached origin/main untagged, and v0.3.1 is a lightweight tag; none of that is rewritten. (L-12, L-23)
+1. One version is one CHANGELOG entry and one annotated tag on main (v0.4.0 onward), made only after a fresh check passes. Unchecked work is "Unreleased" at the top of the CHANGELOG, never a numbered draft.
 2. A release bumps one step. Patch for fixes or docs, minor for features. Never stack drafts (no x.y.1 on an unreleased x.y.0). Docs-only changes join the next release.
 3. A release branch starts from the previous release tag, with no unreleased work underneath it.
 4. Only checked releases go on main. Drafts live on branches with no upstream set to main. Local main equals origin/main after each release.
