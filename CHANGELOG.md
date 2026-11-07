@@ -1,13 +1,9 @@
 # Changelog
 
-## v0.4.1 (draft, 2026-11-07)
-Lessons from the Auto Crawler local-model work of 2026-11-02..07 (two local machines, about 60 lanes in 36 h).
-- **Lessons:** L-45..L-53 in `docs/lessons.md`: watcher restarters, measured queue hours, a tracked idle alarm and stall check, process survival across app restarts, same-machine fresh-session audits, probe-versus-ruling conflicts, stale generated files, resume loops, and a living state page.
-- **Not part of this entry:** no code change; docs only. **Checked** 2026-11-07 by a fresh checker against the Auto Crawler lane logs, suite logs and alarm records (L-23): lane count, median and idle hours corrected, the 10 min per resume figure replaced by the measured 2 to 5 min, and unmeasured figures removed or softened.
-
 ## v0.4.0 (draft, 2026-10-21; checked by a fresh Opus checker 2026-11-01, must-fixes MF-1..MF-5 and most should-fixes applied)
 Folds in the ten findings from the Auto Crawler work of 2026-10-19..21 (source: `WRIGHTCREW_FINDINGS_20261021.md`).
-- **Lessons:** L-35..L-44 in `docs/lessons.md`, one per finding.
+- **Lessons:** L-35..L-44 in `docs/lessons.md`, one per finding; L-45..L-53 added 2026-11-07 from the Auto Crawler local-model work (about 60 lanes in 36 h; figures re-measured against its lane logs, suite logs and code, L-52 and L-47 limited to what the logs show).
+- **Versioning:** section 9 of `AGENTS.md` (six rules: one version = one checked, tagged entry; no stacked drafts).
 - **New doc:** `docs/guidance.md`: lessons-as-memory, recipe from a strong model, gates, the self-look step for vision models, the scorecard.
 - **Docs:** `docs/pipeline.md` §6b lane hygiene (JSON logs, lane cap, fix-cycle cap, lanes never edit the orchestrator's files);
   `docs/roles.md` (art director, maker/checker evidence); `docs/budget.md` (watch both windows, L-43).
@@ -15,7 +11,7 @@ Folds in the ten findings from the Auto Crawler work of 2026-10-19..21 (source: 
 - **Config:** the example runner now uses `pi -p --mode json` (L-40).
 - **Tests:** `tests/test_lane_summary.py` (5 cases).
 - Not part of this entry: the v0.3.2 work (V-05, V-06, V-10); it is its own entry below.
-- **Re-check needed** (L-23): the post-check fixes are a new diff and need a fresh checker.
+- **Re-check needed** (L-23): the post-check fixes and the 2026-11-07 additions are a new diff and need a fresh checker. No tag until that passes.
 
 ## v0.3.3 (2026-10-21)
 Three defects found by challenging seven outside reviews against the code.

@@ -69,3 +69,11 @@ See `docs/roles.md`. The short form:
 - When the user is present and interacting, no lanes run. Their remote check-ins do not count as present;
   only the `USER_BACK` file does. (L-06)
 - Paid-model pacing: see `docs/budget.md`. Draft while the usage window is full; launch heavy agents after the reset. (L-31)
+
+## 9. Versioning
+1. One version is one CHANGELOG entry and one annotated tag on main, made only after a fresh check passes. Unchecked work is "Unreleased" at the top of the CHANGELOG, never a numbered draft.
+2. A release bumps one step. Patch for fixes or docs, minor for features. Never stack drafts (no x.y.1 on an unreleased x.y.0). Docs-only changes join the next release.
+3. A release branch starts from the previous release tag, with no unreleased work underneath it.
+4. Only checked releases go on main. Drafts live on branches with no upstream set to main. Local main equals origin/main after each release.
+5. The same commit updates the README status, test counts and lesson range; the checker verifies them against the CHANGELOG.
+6. Set `user.name` and the noreply email before the first commit. Every commit subject starts with `[CARD-ID]`, release commits included.
