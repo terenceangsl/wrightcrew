@@ -11,7 +11,7 @@ Folds in the ten findings from the Auto Crawler work of 2026-10-19..21 (source: 
 - **Config:** the example runner now uses `pi -p --mode json` (L-40).
 - **Tests:** `tests/test_lane_summary.py` (5 cases).
 - Not part of this entry: the v0.3.2 work (V-05, V-06, V-10); it is its own entry below.
-- **Re-check needed** (L-23): the post-check fixes and the 2026-11-07 additions are a new diff and need a fresh checker. No tag until that passes.
+- **Checked** (L-23): fresh re-checks of the post-check fixes and the 2026-11-07 additions passed on 2026-11-07 and 2026-11-08; the release-prep diff was checked on 2026-11-08.
 
 ## v0.3.3 (2026-10-21)
 Three defects found by challenging seven outside reviews against the code.

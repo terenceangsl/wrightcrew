@@ -35,7 +35,7 @@ It is not a framework or a server. It is:
 - **A driver** (`wrightcrew/driver.py`). It runs queued lanes one at a time with no Claude in the loop: one state file, stop files, a deadline, and a post-landing review.
 - **Templates** for cards, builder prompts, check reports, handoff entries and the planner refill.
 - **A lessons file**, which records each incident and the rule it produced.
-- **A lane-log summariser and a template** (v0.4 draft): `tools/lane_summary.py` summarises a JSONL lane log, and `templates/lessons_file.md` is a per-role lessons-file template.
+- **A lane-log summariser and a template** (v0.4.0): `tools/lane_summary.py` summarises a JSONL lane log, and `templates/lessons_file.md` is a per-role lessons-file template.
 - **A guidance guide** (`docs/guidance.md`): how lessons, a recipe, gates and a scorecard trained a local model without fine-tuning.
 
 ## The crew
