@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.1 (draft, 2026-11-07)
+Lessons from the Auto Crawler local-model work of 2026-11-02..07 (two local machines, about 60 lanes in 36 h).
+- **Lessons:** L-45..L-53 in `docs/lessons.md`: watcher restarters, measured queue hours, a tracked idle alarm and stall check, process survival across app restarts, same-machine fresh-session audits, probe-versus-ruling conflicts, stale generated files, resume loops, and a living state page.
+- **Not part of this entry:** no code change; docs only. **Checked** 2026-11-07 by a fresh checker against the Auto Crawler lane logs, suite logs and alarm records (L-23): lane count, median and idle hours corrected, the 10 min per resume figure replaced by the measured 2 to 5 min, and unmeasured figures removed or softened.
+
 ## v0.4.0 (draft, 2026-10-21; checked by a fresh Opus checker 2026-11-01, must-fixes MF-1..MF-5 and most should-fixes applied)
 Folds in the ten findings from the Auto Crawler work of 2026-10-19..21 (source: `WRIGHTCREW_FINDINGS_20261021.md`).
 - **Lessons:** L-35..L-44 in `docs/lessons.md`, one per finding.
