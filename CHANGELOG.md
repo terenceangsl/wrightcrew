@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.4.0 (unreleased candidate, drafted 2026-10-21; checked by a fresh Opus checker 2026-11-01, must-fixes MF-1..MF-5 and most should-fixes applied)
+## Unreleased (planned v0.4.0, drafted 2026-10-21; checked by a fresh Opus checker 2026-11-01, must-fixes MF-1..MF-5 and most should-fixes applied)
 Folds in the ten findings from the Auto Crawler work of 2026-10-19..21 (source: `WRIGHTCREW_FINDINGS_20261021.md`).
 - **Lessons:** L-35..L-44 in `docs/lessons.md`, one per finding; L-45..L-53 added 2026-11-07 from the Auto Crawler local-model work (about 60 lanes in 36 h; figures re-measured against its lane logs, suite logs and code, L-52 and L-47 limited to what the logs show).
 - **Versioning:** section 9 of `AGENTS.md` (six rules: one version = one checked, tagged entry; no stacked drafts).
